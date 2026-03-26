@@ -20,19 +20,19 @@
     <style>
       /* CSS Variables for Professional Color Scheme */
       :root {
-        --primary-color: #1a365d; /* Navy Blue */
-        --primary-light: #2b6cb0;
-        --accent-color: #ed8936; /* Bright Orange for CTAs */
-        --accent-hover: #dd6b20;
-        --bg-color: #f7fafc; /* Light gray background */
-        --surface-color: #ffffff; /* White for cards/sections */
-        --text-main: #2d3748; /* Dark gray text */
-        --text-muted: #718096; /* Medium gray text */
-        --border-color: #e2e8f0;
+        --primary-color: #64ffda; /* Teal for dark theme accents */
+        --primary-light: #a7ffeb;
+        --accent-color: #ff9800; /* Bright Orange for CTAs */
+        --accent-hover: #f57c00;
+        --bg-color: #0a192f; /* Deep dark blue background */
+        --surface-color: #112240; /* Darker surface for cards/sections */
+        --text-main: #ccd6f6; /* Light text */
+        --text-muted: #8892b0; /* Medium light gray text */
+        --border-color: #233554; /* Dark border */
 
         --border-radius: 8px;
         --box-shadow:
-          0 4px 6px rgba(0, 0, 0, 0.05), 0 1px 3px rgba(0, 0, 0, 0.1);
+          0 4px 6px rgba(0, 0, 0, 0.3), 0 1px 3px rgba(0, 0, 0, 0.4);
         --transition: all 0.3s ease;
       }
 
@@ -218,8 +218,8 @@
         height: 100%;
         background: linear-gradient(
           to right,
-          rgba(26, 54, 93, 0.95),
-          rgba(26, 54, 93, 0.7)
+          rgba(10, 25, 47, 0.95),
+          rgba(10, 25, 47, 0.7)
         );
         z-index: 1;
       }
@@ -461,34 +461,44 @@
       }
 
       .feature-box {
-        background-color: rgba(255, 255, 255, 0.1);
+        background-color: var(--surface-color);
         padding: 30px;
         border-radius: var(--border-radius);
         text-align: center;
-        border: 1px solid rgba(255, 255, 255, 0.2);
+        border: 1px solid var(--border-color);
         transition: var(--transition);
       }
 
       .feature-box:hover {
-        background-color: rgba(255, 255, 255, 0.15);
+        background-color: var(--primary-color);
+        border-color: var(--primary-color);
         transform: translateY(-5px);
+      }
+
+      .feature-box:hover .feature-title,
+      .feature-box:hover .feature-desc,
+      .feature-box:hover .feature-icon {
+        color: var(--bg-color);
       }
 
       .feature-icon {
         font-size: 2.5rem;
         color: var(--accent-color);
         margin-bottom: 20px;
+        transition: var(--transition);
       }
 
       .feature-title {
         font-size: 1.2rem;
-        color: white;
+        color: var(--text-main);
         margin-bottom: 15px;
+        transition: var(--transition);
       }
 
       .feature-desc {
-        color: #e2e8f0;
+        color: var(--text-muted);
         font-size: 0.95rem;
+        transition: var(--transition);
       }
 
       /* Process Steps */
@@ -788,9 +798,10 @@
 
       /* Footer */
       .footer {
-        background-color: #0a192f; /* Very dark blue */
+        background-color: #060f1c; /* Even darker blue for contrast from dark theme */
         color: white;
         padding: 80px 0 30px;
+        border-top: 1px solid var(--border-color);
       }
 
       .footer-grid {
@@ -1019,7 +1030,7 @@
     </section>
 
     <!-- Services Section -->
-    <section class="section-padding" id="services">
+    <section class="section-padding" style="background-color: var(--bg-color)" id="services">
       <div class="container">
         <div class="text-center">
           <h2 class="section-title">Our Professional Services</h2>
@@ -1107,7 +1118,7 @@
     </section>
 
     <!-- About Section -->
-    <section class="about-section" id="about">
+    <section class="about-section" style="background-color: var(--surface-color)" id="about">
       <div class="container about-container">
         <div class="about-image">
           <img
@@ -1159,7 +1170,7 @@
     <!-- Why Choose Us -->
     <section
       class="section-padding"
-      style="background-color: var(--primary-color); color: white"
+      style="background-color: var(--bg-color); color: var(--text-main)"
       id="why-us"
     >
       <div class="container">
@@ -1167,16 +1178,16 @@
           <span
             class="badge"
             style="
-              background: rgba(255, 255, 255, 0.1);
-              border-color: rgba(255, 255, 255, 0.2);
+              background: var(--surface-color);
+              border-color: var(--border-color);
             "
             ><i class="fas fa-star" style="color: #f6e05e"></i> Why Choose Prime
             Plumbing</span
           >
-          <h2 class="section-title" style="color: white">
+          <h2 class="section-title">
             The Prime Plumbing Difference
           </h2>
-          <p class="section-subtitle" style="color: #e2e8f0">
+          <p class="section-subtitle">
             We go above and beyond to ensure our customers receive the highest
             quality service.
           </p>
@@ -1220,7 +1231,7 @@
     </section>
 
     <!-- How It Works (Process) -->
-    <section class="section-padding" id="process">
+    <section class="section-padding" style="background-color: var(--surface-color)" id="process">
       <div class="container">
         <div class="text-center">
           <h2 class="section-title">How It Works</h2>
@@ -1270,7 +1281,7 @@
     <!-- Testimonials Section -->
     <section
       class="section-padding"
-      style="background-color: var(--surface-color)"
+      style="background-color: var(--bg-color)"
       id="testimonials"
     >
       <div class="container">
@@ -1357,7 +1368,7 @@
     </section>
 
     <!-- FAQ Section -->
-    <section class="section-padding" id="faq">
+    <section class="section-padding" style="background-color: var(--surface-color)" id="faq">
       <div class="container">
         <div class="text-center">
           <h2 class="section-title">Frequently Asked Questions</h2>
@@ -1433,7 +1444,7 @@
     <!-- Contact & Map Section -->
     <section
       class="section-padding"
-      style="background-color: var(--surface-color)"
+      style="background-color: var(--bg-color)"
       id="contact"
     >
       <div class="container">
