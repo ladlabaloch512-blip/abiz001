@@ -157,6 +157,7 @@
         display: flex;
         align-items: center;
         gap: 10px;
+        white-space: nowrap;
       }
 
       .logo span {
@@ -172,6 +173,7 @@
       .nav-list {
         display: flex;
         gap: 2rem;
+        white-space: nowrap;
       }
 
       .nav-link {
@@ -188,6 +190,7 @@
         display: flex;
         align-items: center;
         gap: 8px;
+        white-space: nowrap;
       }
 
       .mobile-toggle {
@@ -313,7 +316,20 @@
       }
 
       /* Responsive */
-      @media (max-width: 992px) {
+      @media (max-width: 1350px) {
+        .nav-list {
+          gap: 1rem;
+        }
+        .logo {
+          font-size: 1.2rem;
+        }
+        .header-cta {
+          padding: 10px 15px;
+          font-size: 0.9rem;
+        }
+      }
+
+      @media (max-width: 1250px) {
         .nav-menu {
           display: none;
         }
@@ -323,6 +339,9 @@
         .mobile-toggle {
           display: block;
         }
+      }
+
+      @media (max-width: 992px) {
         .hero-title {
           font-size: 3rem;
         }
@@ -1605,7 +1624,7 @@
             </a>
             <p style="color: #a0aec0; margin-bottom: 20px">
               Your trusted local plumbing experts serving Pueblo, CO and the
-              surrounding Tampa Bay area with top-rated, 24/7 service.
+              surrounding Southern Colorado area with top-rated, 24/7 service.
             </p>
             <div class="social-links">
               <a href="#"><i class="fab fa-facebook-f"></i></a>
@@ -1705,7 +1724,7 @@
       // Close mobile menu when a link is clicked
       navLinks.forEach((link) => {
         link.addEventListener("click", () => {
-          if (window.innerWidth <= 992) {
+          if (window.innerWidth <= 1250) {
             navMenu.style.display = "none";
           }
         });
@@ -1713,7 +1732,7 @@
 
       // Handle window resize to reset menu styles
       window.addEventListener("resize", () => {
-        if (window.innerWidth > 992) {
+        if (window.innerWidth > 1250) {
           navMenu.style.display = "block";
           navMenu.style.position = "static";
           navMenu.style.padding = "0";
