@@ -158,6 +158,7 @@
         align-items: center;
         gap: 10px;
         white-space: nowrap;
+        flex-shrink: 0;
       }
 
       .logo span {
@@ -191,6 +192,7 @@
         align-items: center;
         gap: 8px;
         white-space: nowrap;
+        flex-shrink: 0;
       }
 
       .mobile-toggle {
@@ -329,7 +331,7 @@
         }
       }
 
-      @media (max-width: 1250px) {
+      @media (max-width: 1300px) {
         .nav-menu {
           display: none;
         }
@@ -1724,7 +1726,7 @@
       // Close mobile menu when a link is clicked
       navLinks.forEach((link) => {
         link.addEventListener("click", () => {
-          if (window.innerWidth <= 1250) {
+          if (window.innerWidth <= 1300) {
             navMenu.style.display = "none";
           }
         });
@@ -1732,7 +1734,7 @@
 
       // Handle window resize to reset menu styles
       window.addEventListener("resize", () => {
-        if (window.innerWidth > 1250) {
+        if (window.innerWidth > 1300) {
           navMenu.style.display = "block";
           navMenu.style.position = "static";
           navMenu.style.padding = "0";
