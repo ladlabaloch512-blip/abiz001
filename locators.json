@@ -1,0 +1,24 @@
+{
+  "base_target_url": "https://example-ecommerce-platform.com",
+  "auth": {
+    "login_url": "https://example-ecommerce-platform.com/login",
+    "username_xpath": "//input[@id='username']",
+    "password_xpath": "//input[@id='password']",
+    "submit_button_xpath": "//button[@type='submit' and contains(@class, 'login-btn')]",
+    "success_check_xpath": "//div[contains(@class, 'dashboard-welcome-banner')]"
+  },
+  "generic_form": {
+    "form_url": "https://example-ecommerce-platform.com/new-listing",
+    "title_input_xpath": "//input[@name='listing_title']",
+    "subject_dropdown_xpath": "//select[@name='listing_subject']",
+    "cost_input_xpath": "//input[@name='listing_cost']",
+    "file_upload_xpath": "//input[@type='file' and @id='image_uploader']",
+    "submit_button_xpath": "//button[@id='publish_listing']",
+    "success_notification_xpath": "//div[contains(@class, 'alert-success')]"
+  },
+  "notifications": {
+    "inbox_container_xpath": "//div[@id='notification-center']",
+    "reply_textbox_xpath": "//textarea[@name='quick_reply']",
+    "send_reply_button_xpath": "//button[contains(@class, 'send-reply')]"
+  }
+}

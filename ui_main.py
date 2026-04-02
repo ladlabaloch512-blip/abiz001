@@ -221,6 +221,19 @@ class MainDashboard(ctk.CTk):
         self.entry_cost = ctk.CTkEntry(form_card, placeholder_text="e.g., 150", width=400, fg_color=APP_BG, border_color=BORDER_C)
         self.entry_cost.pack(anchor="w", padx=20)
 
+        ctk.CTkLabel(form_card, text="Subject", font=FONT_BODY, text_color=TEXT_S).pack(anchor="w", padx=20, pady=(15, 5))
+        self.entry_subject = ctk.CTkEntry(form_card, placeholder_text="e.g., Condition: New", width=400, fg_color=APP_BG, border_color=BORDER_C)
+        self.entry_subject.pack(anchor="w", padx=20)
+
+        ctk.CTkLabel(form_card, text="File Paths (Comma Separated)", font=FONT_BODY, text_color=TEXT_S).pack(anchor="w", padx=20, pady=(15, 5))
+        self.entry_files = ctk.CTkEntry(form_card, placeholder_text="C:\\image1.png, C:\\image2.png", width=400, fg_color=APP_BG, border_color=BORDER_C)
+        self.entry_files.pack(anchor="w", padx=20)
+
+        # Profile Target
+        ctk.CTkLabel(form_card, text="Target Profile ID (Leave empty for All)", font=FONT_BODY, text_color=TEXT_S).pack(anchor="w", padx=20, pady=(15, 5))
+        self.entry_target = ctk.CTkEntry(form_card, placeholder_text="e.g., 1", width=400, fg_color=APP_BG, border_color=BORDER_C)
+        self.entry_target.pack(anchor="w", padx=20)
+
         # Execute Action
         btn_launch = ctk.CTkButton(
             form_card, text="🚀 Launch Automation Queue",
@@ -263,10 +276,10 @@ class MainDashboard(ctk.CTk):
         input_frame.grid(row=1, column=0, sticky="ew", padx=10, pady=(0, 10))
         input_frame.grid_columnconfigure(0, weight=1)
 
-        reply_entry = ctk.CTkEntry(input_frame, placeholder_text="Type your reply...", fg_color=APP_BG, border_color=BORDER_C)
-        reply_entry.grid(row=0, column=0, sticky="ew", padx=(0, 10))
+        self.reply_entry = ctk.CTkEntry(input_frame, placeholder_text="Type your reply...", fg_color=APP_BG, border_color=BORDER_C)
+        self.reply_entry.grid(row=0, column=0, sticky="ew", padx=(0, 10))
 
-        send_btn = ctk.CTkButton(input_frame, text="Send", width=80, fg_color=ACCENT, hover_color=ACCENT_H)
+        send_btn = ctk.CTkButton(input_frame, text="Send", width=80, fg_color=ACCENT, hover_color=ACCENT_H, command=self.launch_inbox_reply)
         send_btn.grid(row=0, column=1)
 
         return frame
@@ -309,6 +322,9 @@ class MainDashboard(ctk.CTk):
         """Builds tasks for all profiles to execute the generic form."""
         title = self.entry_title.get()
         cost = self.entry_cost.get()
+        subject = self.entry_subject.get()
+        files = self.entry_files.get()
+        target = self.entry_target.get()
 
         if not title:
             self.write_log("System", "Error", "Form Title cannot be empty.")
@@ -319,18 +335,50 @@ class MainDashboard(ctk.CTk):
             self.write_log("System", "Error", "No profiles available. Add one in Accounts Tab.")
             return
 
+        if target:
+            try:
+                target_id = int(target)
+                profiles = [p for p in profiles if p['id'] == target_id]
+            except ValueError:
+                self.write_log("System", "Error", "Target Profile ID must be a number.")
+                return
+
         tasks = []
         for p in profiles:
             task = AutomationTask(
                 profile_id=p['id'],
                 profile_name=p['profile_name'],
                 task_type="fill_generic_form",
-                payload={"title": title, "cost": cost}
+                payload={"title": title, "cost": cost, "subject": subject, "files": files}
             )
             tasks.append(task)
 
         self.engine.dispatch_tasks(tasks)
         self.write_log("System", "Info", f"Dispatched Form tasks to {len(tasks)} threads.")
+
+    def launch_inbox_reply(self):
+        """Dispatches a task to send a reply via the unified inbox."""
+        reply_text = self.reply_entry.get()
+        if not reply_text:
+             self.write_log("System", "Error", "Reply text cannot be empty.")
+             return
+
+        profiles = self.db.get_all_profiles()
+        if not profiles:
+            self.write_log("System", "Error", "No profiles available for Inbox.")
+            return
+
+        # For this generic setup, send the reply using the first active profile as a target.
+        # In a real scenario, this would be tied to the selected dummy thread.
+        p = profiles[0]
+        task = AutomationTask(
+             profile_id=p['id'],
+             profile_name=p['profile_name'],
+             task_type="send_inbox_reply",
+             payload={"reply": reply_text}
+        )
+        self.engine.dispatch_tasks([task])
+        self.write_log("System", "Info", f"Dispatched Inbox Reply via {p['profile_name']}")
 
     def launch_auth_check(self, pid, pname):
         """Dispatches a single login check task."""
