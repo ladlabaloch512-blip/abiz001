@@ -22,6 +22,17 @@ from .database import update_last_active, update_profile_status
 # Global registry for active drivers to support right-click actions
 ACTIVE_DRIVERS = {}
 
+# --- FB Marketplace XPaths ---
+FB_MARKET_URL = "https://www.facebook.com/marketplace/create/item"
+FB_MARKET_SELLING_URL = "https://www.facebook.com/marketplace/you/selling"
+XPATH_FILE_INPUT = "//input[@type='file' and @accept='image/*,image/heif,image/heic']"
+XPATH_TITLE_INPUT = "//label[.//span[text()='Title']]//input"
+XPATH_PRICE_INPUT = "//label[.//span[text()='Price']]//input"
+XPATH_DESC_INPUT = "//label[.//span[text()='Description']]//textarea"
+XPATH_LOCATION_INPUT = "//label[.//span[text()='Location']]//input"
+XPATH_NEXT_BTN = "//div[@aria-label='Next' and @role='button']"
+XPATH_PUBLISH_BTN = "//div[@aria-label='Publish' and @role='button']"
+
 class StopBrowserWorker(QRunnable):
     """Threaded worker to cleanly close browsers without freezing the UI."""
     def __init__(self, profile_ids):
@@ -422,12 +433,12 @@ class BrowserLauncherWorker(BaseBrowserWorker):
 
 class MarketplaceTaskWorker(BaseBrowserWorker):
     """
-    QRunnable thread instance to launch Chrome, navigate to FB Marketplace, and post a service listing.
+    QRunnable thread instance to launch Chrome, navigate to FB Marketplace, and post a queue of service listings.
     """
-    def __init__(self, profile_data, listing_data):
+    def __init__(self, profile_data, listing_queue):
         super().__init__()
         self.profile = profile_data
-        self.listing_data = listing_data
+        self.listing_queue = listing_queue # Expects a list of dictionaries
         self.signals = WorkerSignals()
 
     def process_spintax(self, text):
@@ -443,16 +454,26 @@ class MarketplaceTaskWorker(BaseBrowserWorker):
         return text
 
     def scrub_image_exif(self, image_paths):
-        """Uses PIL to clear EXIF metadata from images to appear fresh to the FB algorithm."""
+        """Uses PIL to clear EXIF metadata and imperceptibly alter pixels to bypass Duplicate Content flags."""
         scrubbed_paths = []
         for path in image_paths:
             try:
                 img = Image.open(path)
 
-                # We strip metadata by saving the core image data to a new temporary file
+                # Strip metadata
                 data = list(img.getdata())
                 image_without_exif = Image.new(img.mode, img.size)
                 image_without_exif.putdata(data)
+
+                # Randomize 1 pixel to definitively alter the image hash
+                pixels = image_without_exif.load()
+                x, y = random.randint(0, img.size[0]-1), random.randint(0, img.size[1]-1)
+                if img.mode == 'RGB':
+                    r, g, b = pixels[x, y]
+                    pixels[x, y] = (min(r+1, 255), g, b)
+                elif img.mode == 'RGBA':
+                    r, g, b, a = pixels[x, y]
+                    pixels[x, y] = (min(r+1, 255), g, b, a)
 
                 base_dir = os.path.dirname(os.path.abspath(__file__))
                 temp_dir = os.path.join(base_dir, 'temp_images')
@@ -468,14 +489,42 @@ class MarketplaceTaskWorker(BaseBrowserWorker):
 
         return scrubbed_paths
 
-    def human_delay(self):
-        """Randomized sleep interval (5s to 12s) to bypass bot detection."""
-        time.sleep(random.uniform(5.0, 12.0))
+    def human_delay(self, min_s=3.0, max_s=7.0):
+        """Randomized sleep interval to bypass bot detection."""
+        time.sleep(random.uniform(min_s, max_s))
+
+    def force_fill(self, driver, xpath, text):
+        """Scrolls into view, physically clicks, types using ActionChains, and Tabs out."""
+        wait = WebDriverWait(driver, 10)
+        try:
+            element = wait.until(EC.presence_of_element_located((By.XPATH, xpath)))
+            driver.execute_script("arguments[0].scrollIntoView({block: 'center', behavior: 'smooth'});", element)
+            time.sleep(0.5)
+
+            # ActionChains force click and type
+            actions = ActionChains(driver)
+            actions.move_to_element(element).click().perform()
+            time.sleep(0.5)
+
+            # Clear if necessary (React might override this, so ctrl+a + backspace is safer)
+            actions.key_down(Keys.CONTROL).send_keys('a').key_up(Keys.CONTROL).send_keys(Keys.BACKSPACE).perform()
+            time.sleep(0.5)
+
+            for char in text:
+                actions.send_keys(char).perform()
+                time.sleep(random.uniform(0.03, 0.08))
+
+            # Tab out to force React state sync
+            actions.send_keys(Keys.TAB).perform()
+
+        except Exception as e:
+            print(f"Error force_filling {xpath}: {e}")
 
     @pyqtSlot()
     def run(self):
         driver = None
         try:
+            profile_id = self.profile['id']
             account_id = self.profile['account_id']
             base_dir = os.path.dirname(os.path.abspath(__file__))
 
@@ -529,75 +578,109 @@ class MarketplaceTaskWorker(BaseBrowserWorker):
             driver.set_page_load_timeout(30)
             self.inject_stealth_scripts(driver, self.profile)
 
-            print(f"[{account_id}] Navigating to FB Marketplace Create Item...")
-            driver.get("https://www.facebook.com/marketplace/create/item")
+            ACTIVE_DRIVERS[profile_id] = driver
+            self.signals.status_update.emit(profile_id, "🔄 Processing Queue...")
+            update_profile_status(profile_id, "🔄 Processing Queue...")
 
-            self.human_delay()
+            for idx, listing_data in enumerate(self.listing_queue):
+                print(f"[{account_id}] Post {idx+1}/{len(self.listing_queue)}: Navigating to FB Marketplace Create Item...")
+                driver.get(FB_MARKET_URL)
+                self.human_delay(5.0, 10.0)
 
-            # Process Spintax for this specific post
-            final_title = self.process_spintax(self.listing_data['title'])
-            final_desc = self.process_spintax(self.listing_data['description'])
-            final_price = self.listing_data['price']
-
-            # Prepare Images
-            scrubbed_images = self.scrub_image_exif(self.listing_data['images'])
-            # Perform active Automation based on placeholders
-            FILE_INPUT = "input[type='file'][accept^='image']"
-            TITLE_INPUT = "label[aria-label='Title'] input"
-            PRICE_INPUT = "label[aria-label='Price'] input"
-            DESC_INPUT = "label[aria-label='Description'] textarea"
-            PUBLISH_BTN = "div[aria-label='Publish']"
-
-            if scrubbed_images:
-                image_paths_str = "\n".join(scrubbed_images)
-                print(f"[{account_id}] Uploading scrubbed images...")
-                try:
-                    driver.find_element(By.CSS_SELECTOR, FILE_INPUT).send_keys(image_paths_str)
-                except Exception as e:
-                    print(f"[{account_id}] Warning: Could not upload images: {e}")
-                self.human_delay()
-
-            print(f"[{account_id}] Entering Title: {final_title}")
-            try:
-                driver.find_element(By.CSS_SELECTOR, TITLE_INPUT).send_keys(final_title)
-            except Exception as e:
-                print(f"[{account_id}] Warning: Could not enter title: {e}")
-            self.human_delay()
-
-            print(f"[{account_id}] Entering Price: {final_price}")
-            try:
-                driver.find_element(By.CSS_SELECTOR, PRICE_INPUT).send_keys(final_price)
-            except Exception as e:
-                print(f"[{account_id}] Warning: Could not enter price: {e}")
-            self.human_delay()
-
-            print(f"[{account_id}] Entering Description...")
-            try:
-                driver.find_element(By.CSS_SELECTOR, DESC_INPUT).send_keys(final_desc)
-            except Exception as e:
-                print(f"[{account_id}] Warning: Could not enter description: {e}")
-            self.human_delay()
-
-            print(f"[{account_id}] Listing Ready. Clicking Publish (Placeholder).")
-            try:
-                # driver.find_element(By.CSS_SELECTOR, PUBLISH_BTN).click()
-                print(f"[{account_id}] (Mock Publish Triggered)")
-            except Exception as e:
-                print(f"[{account_id}] Warning: Could not click publish: {e}")
-            self.human_delay()
-
-            # Keep alive for review (or close immediately in real bulk runs)
-            while True:
-                try:
-                    if driver.window_handles:
-                        driver.switch_to.window(driver.window_handles[0])
-                    time.sleep(1)
-                except Exception:
+                # Check for login walls
+                if 'login' in driver.current_url.lower():
+                    print(f"[{account_id}] Account not logged in. Aborting queue.")
+                    self.signals.status_update.emit(profile_id, "❌ Not Logged In")
+                    update_profile_status(profile_id, "❌ Not Logged In")
                     break
+
+                # Process Spintax for this specific post
+                final_title = self.process_spintax(listing_data['title'])
+                final_desc = self.process_spintax(listing_data['description'])
+                final_price = listing_data['price']
+                final_location = listing_data.get('location', '')
+
+                # Prepare Images
+                scrubbed_images = self.scrub_image_exif(listing_data['images'])
+
+                if scrubbed_images:
+                    image_paths_str = "\n".join(scrubbed_images)
+                    print(f"[{account_id}] Uploading scrubbed images...")
+                    try:
+                        driver.find_element(By.XPATH, XPATH_FILE_INPUT).send_keys(image_paths_str)
+                        # Explicitly wait for images to process (crucial fix for getting stuck)
+                        print(f"[{account_id}] Waiting 10 seconds for images to upload and render...")
+                        time.sleep(10.0)
+                    except Exception as e:
+                        print(f"[{account_id}] Warning: Could not upload images: {e}")
+
+                print(f"[{account_id}] Entering Title: {final_title}")
+                self.force_fill(driver, XPATH_TITLE_INPUT, final_title)
+
+                print(f"[{account_id}] Entering Price: {final_price}")
+                self.force_fill(driver, XPATH_PRICE_INPUT, final_price)
+
+                if final_location:
+                    print(f"[{account_id}] Entering Location: {final_location}")
+                    self.force_fill(driver, XPATH_LOCATION_INPUT, final_location)
+                    # Need to select the dropdown that appears
+                    time.sleep(2.0)
+                    try:
+                        actions = ActionChains(driver)
+                        actions.send_keys(Keys.ARROW_DOWN).send_keys(Keys.RETURN).perform()
+                        time.sleep(1.0)
+                    except:
+                        pass
+
+                print(f"[{account_id}] Entering Description...")
+                self.force_fill(driver, XPATH_DESC_INPUT, final_desc)
+
+                print(f"[{account_id}] Navigating Next & Publishing...")
+                try:
+                    # Click Next
+                    wait = WebDriverWait(driver, 5)
+                    next_btn = wait.until(EC.element_to_be_clickable((By.XPATH, XPATH_NEXT_BTN)))
+                    driver.execute_script("arguments[0].scrollIntoView();", next_btn)
+                    time.sleep(1.0)
+                    next_btn.click()
+                    self.human_delay(3.0, 5.0)
+
+                    # Click Publish
+                    publish_btn = wait.until(EC.element_to_be_clickable((By.XPATH, XPATH_PUBLISH_BTN)))
+                    driver.execute_script("arguments[0].scrollIntoView();", publish_btn)
+                    time.sleep(1.0)
+                    publish_btn.click()
+
+                    # Wait for publish to finish redirecting
+                    time.sleep(10.0)
+
+                    success_msg = f"✅ Posted - {final_title[:15]}..."
+                    self.signals.status_update.emit(profile_id, success_msg)
+                    update_profile_status(profile_id, success_msg)
+                    print(f"[{account_id}] Successfully Published: {final_title}")
+
+                except Exception as e:
+                    print(f"[{account_id}] Warning: Could not complete publish sequence: {e}")
+
+                # Delay between multiple posts
+                if idx < len(self.listing_queue) - 1:
+                    print(f"[{account_id}] Waiting before next post in queue...")
+                    self.human_delay(15.0, 30.0)
+
+            # Update last active in DB
+            now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            update_last_active(profile_id, now_str)
 
         except Exception as e:
             self.signals.error.emit((str(e),))
         finally:
+            if 'profile_id' in locals() and profile_id in ACTIVE_DRIVERS:
+                del ACTIVE_DRIVERS[profile_id]
+            if driver:
+                try:
+                    driver.quit()
+                except:
+                    pass
             self.signals.finished.emit(self.profile['id'])
 
 

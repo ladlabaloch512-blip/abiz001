@@ -697,6 +697,11 @@ class MainClientApp(QMainWindow):
 
             manage_menu.addSeparator()
 
+            act_live_check = manage_menu.addAction("🔗 Check Live Listings")
+            act_live_check.triggered.connect(lambda checked, p=profile: self.launch_single_profile(p, "Custom URL", "https://www.facebook.com/marketplace/you/selling"))
+
+            manage_menu.addSeparator()
+
             act_stop = manage_menu.addAction("🛑 Stop Profile")
             if profile['id'] in ACTIVE_DRIVERS:
                 act_stop.triggered.connect(lambda checked, pid=profile['id']: self.stop_single_profile(pid))
@@ -1519,7 +1524,7 @@ class MainClientApp(QMainWindow):
 
         left_layout.addLayout(form_layout)
 
-        # Images Attachment
+        # Images Attachment & Gallery
         img_layout = QHBoxLayout()
         img_label = QLabel("Images:")
         self.img_btn = QPushButton("Select Photos")
@@ -1530,19 +1535,48 @@ class MainClientApp(QMainWindow):
         img_layout.addStretch()
         left_layout.addLayout(img_layout)
 
-        self.img_list = QListWidget()
-        self.img_list.setMaximumHeight(80)
-        self.img_list.setStyleSheet("background-color: #1E232B; color: white; border: 1px solid #2D3139; border-radius: 6px;")
+        from PyQt6.QtWidgets import QScrollArea
+        self.gallery_area = QScrollArea()
+        self.gallery_area.setWidgetResizable(True)
+        self.gallery_area.setMaximumHeight(120)
+        self.gallery_area.setStyleSheet("background-color: #1E232B; border: 1px solid #2D3139; border-radius: 6px;")
+
+        self.gallery_container = QWidget()
+        self.gallery_layout = QHBoxLayout(self.gallery_container)
+        self.gallery_layout.setAlignment(Qt.AlignmentFlag.AlignLeft)
+        self.gallery_area.setWidget(self.gallery_container)
+
         self.image_paths = []
-        left_layout.addWidget(self.img_list)
+        left_layout.addWidget(self.gallery_area)
 
         layout.addWidget(left_panel, 2)
 
-        # Right Panel: Account Picker
+        # Right Panel: Account Picker & Queue
         right_panel = QFrame()
         right_panel.setObjectName("Card")
         right_layout = QVBoxLayout(right_panel)
 
+        self.listing_queue = [] # Queue of listing dictionaries
+
+        # 1. Queue Management
+        queue_title = QLabel("Listing Queue")
+        queue_title.setStyleSheet("font-size: 16px; font-weight: bold; color: #10B981;")
+        right_layout.addWidget(queue_title)
+
+        self.queue_list_widget = QListWidget()
+        self.queue_list_widget.setStyleSheet("background-color: #1E232B; color: white; border: 1px solid #2D3139; border-radius: 6px;")
+        self.queue_list_widget.setMaximumHeight(120)
+        right_layout.addWidget(self.queue_list_widget)
+
+        add_queue_btn = QPushButton("➕ Add Form to Queue")
+        add_queue_btn.setStyleSheet("background-color: #4F46E5; color: white; padding: 8px; border-radius: 6px; font-weight: bold;")
+        add_queue_btn.clicked.connect(self.add_to_listing_queue)
+        right_layout.addWidget(add_queue_btn)
+
+        # Spacer
+        right_layout.addSpacing(10)
+
+        # 2. Account Picker
         acc_title = QLabel("Select Accounts for Bulk Post")
         acc_title.setStyleSheet("font-size: 16px; font-weight: bold;")
         right_layout.addWidget(acc_title)
@@ -1557,8 +1591,8 @@ class MainClientApp(QMainWindow):
         self.populate_account_picker()
         right_layout.addWidget(self.acc_list_widget)
 
-        self.start_bulk_btn = QPushButton("🚀 Start Bulk Listing")
-        self.start_bulk_btn.setObjectName("PrimaryAction")
+        self.start_bulk_btn = QPushButton("🚀 Dispatch Queued Tasks")
+        self.start_bulk_btn.setProperty("class", "PrimaryAction")
         self.start_bulk_btn.clicked.connect(self.start_bulk_listing_task)
         right_layout.addWidget(self.start_bulk_btn)
 
@@ -1568,9 +1602,44 @@ class MainClientApp(QMainWindow):
         options = QFileDialog.Option.DontUseNativeDialog
         files, _ = QFileDialog.getOpenFileNames(self, "Select Images", "", "Images (*.png *.jpg *.jpeg *.webp)", options=options)
         if files:
-            self.image_paths.extend(files)
             for f in files:
-                self.img_list.addItem(os.path.basename(f))
+                if f not in self.image_paths:
+                    self.image_paths.append(f)
+            self.refresh_image_gallery()
+
+    def refresh_image_gallery(self):
+        # Clear layout
+        while self.gallery_layout.count():
+            child = self.gallery_layout.takeAt(0)
+            if child.widget():
+                child.widget().deleteLater()
+
+        from PyQt6.QtGui import QPixmap
+
+        for path in self.image_paths:
+            container = QWidget()
+            layout = QVBoxLayout(container)
+            layout.setContentsMargins(0, 0, 0, 0)
+
+            img_label = QLabel()
+            pixmap = QPixmap(path).scaled(80, 80, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation)
+            img_label.setPixmap(pixmap)
+            img_label.setFixedSize(80, 80)
+            img_label.setStyleSheet("border: 1px solid #4B5563; border-radius: 4px;")
+
+            del_btn = QPushButton("❌ Remove")
+            del_btn.setStyleSheet("background-color: #EF4444; color: white; padding: 2px; font-size: 10px; border-radius: 2px;")
+            del_btn.clicked.connect(lambda checked, p=path: self.remove_image(p))
+
+            layout.addWidget(img_label)
+            layout.addWidget(del_btn)
+
+            self.gallery_layout.addWidget(container)
+
+    def remove_image(self, path):
+        if path in self.image_paths:
+            self.image_paths.remove(path)
+            self.refresh_image_gallery()
 
     def populate_account_picker(self):
         self.acc_list_widget.clear()
@@ -1590,12 +1659,38 @@ class MainClientApp(QMainWindow):
             else:
                 item.setCheckState(Qt.CheckState.Checked)
 
-    def start_bulk_listing_task(self):
-        # Validate Form
+    def add_to_listing_queue(self):
         title = self.listing_title.text().strip()
         desc = self.listing_desc.toPlainText().strip()
         if not title or not desc:
-            QMessageBox.warning(self, "Validation Error", "Title and Description are required.")
+            QMessageBox.warning(self, "Validation Error", "Title and Description are required to queue an item.")
+            return
+
+        listing_data = {
+            'title': title,
+            'price': self.listing_price.text().strip() or "0",
+            'category': self.listing_category.text().strip(),
+            'location': self.listing_location.text().strip(),
+            'tags': self.listing_tags.text().strip(),
+            'description': desc,
+            'images': list(self.image_paths) # Copy current list
+        }
+        self.listing_queue.append(listing_data)
+
+        # Update queue UI
+        idx = len(self.listing_queue)
+        self.queue_list_widget.addItem(f"[{idx}] {title[:20]}... | {len(self.image_paths)} images")
+
+        # Clear form optionally
+        self.listing_title.clear()
+        self.listing_desc.clear()
+        self.image_paths.clear()
+        self.refresh_image_gallery()
+        QMessageBox.information(self, "Queued", f"Added '{title}' to the dispatch queue.")
+
+    def start_bulk_listing_task(self):
+        if not self.listing_queue:
+            QMessageBox.warning(self, "Queue Empty", "Please add at least one listing to the queue.")
             return
 
         selected_profile_ids = []
@@ -1608,26 +1703,28 @@ class MainClientApp(QMainWindow):
             QMessageBox.warning(self, "Validation Error", "Please select at least one account to post to.")
             return
 
-        listing_data = {
-            'title': title,
-            'price': self.listing_price.text().strip() or "0",
-            'category': self.listing_category.text().strip(),
-            'location': self.listing_location.text().strip(),
-            'tags': self.listing_tags.text().strip(),
-            'description': desc,
-            'images': self.image_paths
-        }
-
         profiles = get_all_profiles()
         launched = 0
         for p in profiles:
             if p['id'] in selected_profile_ids:
-                worker = MarketplaceTaskWorker(p, listing_data)
+                if p['id'] in ACTIVE_DRIVERS:
+                    print(f"Skipping {p['profile_name']} - Already running.")
+                    continue
+                worker = MarketplaceTaskWorker(p, list(self.listing_queue)) # pass a copy of the queue
                 worker.signals.error.connect(self.on_browser_error)
+                worker.signals.status_update.connect(self.on_status_update)
+                worker.signals.finished.connect(self.on_browser_closed)
                 self.threadpool.start(worker)
                 launched += 1
 
-        QMessageBox.information(self, "Task Started", f"Successfully queued {launched} accounts for bulk listing.")
+        if launched > 0:
+            QMessageBox.information(self, "Task Started", f"Successfully dispatched queue of {len(self.listing_queue)} posts to {launched} accounts.")
+            self.listing_queue.clear()
+            self.queue_list_widget.clear()
+            self.load_profiles_into_table()
+            self.stacked_widget.setCurrentWidget(self.account_manager_screen) # Redirect to watch status
+        else:
+             QMessageBox.warning(self, "Error", "No free accounts available to launch.")
 
     def manage_single_proxy(self, profile_id):
         new_proxy, ok = QInputDialog.getText(self, "Update Proxy", "Enter new Proxy (IP:PORT or IP:PORT:USER:PASS):")
