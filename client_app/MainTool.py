@@ -21,8 +21,8 @@ import requests # For "What is my IP" check if needed or just redirect
 import requests # For proxy health check
 
 # Import Module 2, 3 and Multi-Account Engine Logic
-from client_app.database import init_db, get_all_profiles, add_profile, delete_profile, get_next_sequential_id, get_profile_stats, bulk_insert_profiles, update_profile_group, update_profile_proxy
-from client_app.automation_logic import BrowserLauncherWorker, MarketplaceTaskWorker, AccountMonitorWorker, ACTIVE_DRIVERS
+from client_app.database import init_db, get_all_profiles, add_profile, delete_profile, get_next_sequential_id, get_profile_stats, bulk_insert_profiles, update_profile_group, update_profile_proxy, get_all_groups, add_group, delete_group
+from client_app.automation_logic import BrowserLauncherWorker, MarketplaceTaskWorker, AccountMonitorWorker, ACTIVE_DRIVERS, stop_all_selected
 
 class ProxyCheckSignals(QObject):
     result = pyqtSignal(int, bool) # row_idx, is_alive
@@ -272,29 +272,61 @@ class MainClientApp(QMainWindow):
         if self.account_manager_screen.layout():
             QWidget().setLayout(self.account_manager_screen.layout())
 
-        layout = QVBoxLayout(self.account_manager_screen)
+        main_layout = QHBoxLayout(self.account_manager_screen)
 
-        # Header
+        # 1. Profile Grouping System (The Sidebar)
+        group_panel = QFrame()
+        group_panel.setObjectName("Card")
+        group_panel.setFixedWidth(200)
+        group_layout = QVBoxLayout(group_panel)
+
+        group_title = QLabel("Groups")
+        group_title.setObjectName("HeaderTitle")
+        group_layout.addWidget(group_title)
+
+        self.group_list_widget = QListWidget()
+        self.group_list_widget.setStyleSheet("background-color: #1E232B; color: white; border: none; border-radius: 6px;")
+        self.group_list_widget.itemClicked.connect(self.on_group_selected)
+        group_layout.addWidget(self.group_list_widget)
+
+        group_btn_layout = QHBoxLayout()
+        add_group_btn = QPushButton("+ New Group")
+        add_group_btn.setStyleSheet("background-color: #6366F1; color: white; padding: 5px; border-radius: 4px;")
+        add_group_btn.clicked.connect(self.add_new_group)
+
+        del_group_btn = QPushButton("🗑️")
+        del_group_btn.setStyleSheet("background-color: #EF4444; color: white; padding: 5px; border-radius: 4px;")
+        del_group_btn.clicked.connect(self.delete_selected_group)
+
+        group_btn_layout.addWidget(add_group_btn)
+        group_btn_layout.addWidget(del_group_btn)
+        group_layout.addLayout(group_btn_layout)
+
+        main_layout.addWidget(group_panel)
+
+        # 2. Main Account Table Area
+        right_panel = QWidget()
+        layout = QVBoxLayout(right_panel)
+        layout.setContentsMargins(0, 0, 0, 0)
+
+        # Header (Top Actions)
         header_layout = QHBoxLayout()
         title_label = QLabel("Account Manager")
         title_label.setObjectName("HeaderTitle")
         header_layout.addWidget(title_label)
         header_layout.addStretch()
 
-        # Add Profile Btn
         add_btn = QPushButton("+ Add Profile")
         add_btn.setObjectName("PrimaryAction")
         add_btn.setStyleSheet("background-color: #6366F1; color: white; padding: 8px 15px; border-radius: 4px; font-weight: bold;")
         add_btn.clicked.connect(self.open_add_profile_dialog)
         header_layout.addWidget(add_btn)
 
-        # Import TXT Btn
         import_btn = QPushButton("📂 Import from TXT")
         import_btn.setStyleSheet("background-color: #4B5563; color: white; padding: 8px 15px; border-radius: 4px; font-weight: bold;")
         import_btn.clicked.connect(self.import_profiles_from_txt)
         header_layout.addWidget(import_btn)
 
-        # Task Type Dropdown
         self.task_selector = QComboBox()
         self.task_selector.addItems(["Facebook Login & Home", "Custom URL", "Manual (Blank Tab)"])
         self.task_selector.currentTextChanged.connect(self.on_task_type_changed)
@@ -306,44 +338,65 @@ class MainClientApp(QMainWindow):
         self.custom_url_input.hide() # Hidden by default
         header_layout.addWidget(self.custom_url_input)
 
-        # Bulk Launch Btn
-        bulk_launch_btn = QPushButton("🚀 Launch Selected")
-        bulk_launch_btn.setStyleSheet("background-color: #10B981; color: white; padding: 8px 15px; border-radius: 4px; font-weight: bold;")
-        bulk_launch_btn.clicked.connect(self.launch_selected_profiles)
-        header_layout.addWidget(bulk_launch_btn)
-
-        # Check Status Btn
-        status_btn = QPushButton("🔄 Auto-Login & Check Status")
+        status_btn = QPushButton("🔄 Auto-Login Status Check")
         status_btn.setStyleSheet("background-color: #F59E0B; color: white; padding: 8px 15px; border-radius: 4px; font-weight: bold;")
         status_btn.clicked.connect(self.check_selected_profiles_status)
         header_layout.addWidget(status_btn)
 
         layout.addLayout(header_layout)
 
-        # Second Row of Actions: Bulk Generation & Cookies
-        bulk_layout = QHBoxLayout()
+        # Bulk Controls Toolbar
+        bulk_toolbar = QFrame()
+        bulk_toolbar.setStyleSheet("background-color: #1E232B; border-radius: 6px; padding: 5px;")
+        bulk_layout = QHBoxLayout(bulk_toolbar)
+        bulk_layout.setContentsMargins(5, 5, 5, 5)
 
+        bulk_launch_btn = QPushButton("🚀 Bulk Launch")
+        bulk_launch_btn.setStyleSheet("background-color: #10B981; color: white; padding: 6px; border-radius: 4px; font-weight: bold;")
+        bulk_launch_btn.clicked.connect(self.launch_selected_profiles)
+        bulk_layout.addWidget(bulk_launch_btn)
+
+        bulk_stop_btn = QPushButton("🛑 Bulk Stop")
+        bulk_stop_btn.setStyleSheet("background-color: #EF4444; color: white; padding: 6px; border-radius: 4px; font-weight: bold;")
+        bulk_stop_btn.clicked.connect(self.stop_selected_profiles)
+        bulk_layout.addWidget(bulk_stop_btn)
+
+        bulk_delete_btn = QPushButton("🗑️ Bulk Delete")
+        bulk_delete_btn.setStyleSheet("background-color: #EF4444; color: white; padding: 6px; border-radius: 4px; font-weight: bold;")
+        bulk_delete_btn.clicked.connect(self.execute_bulk_delete)
+        bulk_layout.addWidget(bulk_delete_btn)
+
+        move_group_btn = QPushButton("📂 Move to Group")
+        move_group_btn.setStyleSheet("background-color: #4B5563; color: white; padding: 6px; border-radius: 4px; font-weight: bold;")
+        move_group_btn.clicked.connect(self.execute_bulk_group_update)
+        bulk_layout.addWidget(move_group_btn)
+
+        bulk_proxy_btn = QPushButton("🔄 Bulk Proxy Update")
+        bulk_proxy_btn.setStyleSheet("background-color: #4B5563; color: white; padding: 6px; border-radius: 4px; font-weight: bold;")
+        bulk_proxy_btn.clicked.connect(self.execute_bulk_proxy_update)
+        bulk_layout.addWidget(bulk_proxy_btn)
+
+        bulk_layout.addStretch()
+
+        # Additional Builders (Cookies, Empty Creation)
         bulk_create_btn = QPushButton("➕ Bulk Empty Create")
-        bulk_create_btn.setStyleSheet("background-color: #374151; color: white; padding: 8px; border-radius: 4px; font-weight: bold;")
+        bulk_create_btn.setStyleSheet("background-color: #374151; color: white; padding: 6px; border-radius: 4px;")
         bulk_create_btn.clicked.connect(self.bulk_empty_create)
         bulk_layout.addWidget(bulk_create_btn)
 
-        # Import Single Cookie File
         cookie_file_btn = QPushButton("🍪 Import Cookie File")
-        cookie_file_btn.setStyleSheet("background-color: #374151; color: white; padding: 8px; border-radius: 4px; font-weight: bold;")
+        cookie_file_btn.setStyleSheet("background-color: #374151; color: white; padding: 6px; border-radius: 4px;")
         cookie_file_btn.clicked.connect(self.import_cookie_file)
         bulk_layout.addWidget(cookie_file_btn)
 
-        # Import Cookie Folder
         cookie_folder_btn = QPushButton("📁 Import Cookies via Folder")
-        cookie_folder_btn.setStyleSheet("background-color: #374151; color: white; padding: 8px; border-radius: 4px; font-weight: bold;")
+        cookie_folder_btn.setStyleSheet("background-color: #374151; color: white; padding: 6px; border-radius: 4px;")
         cookie_folder_btn.clicked.connect(self.import_via_cookies)
         bulk_layout.addWidget(cookie_folder_btn)
 
-        bulk_layout.addStretch()
-        layout.addLayout(bulk_layout)
+        layout.addWidget(bulk_toolbar)
 
-        # Table Controls: Search, Filter, Select All
+        # Table Controls: Search, Select All
         table_controls_layout = QHBoxLayout()
         self.select_all_checkbox = QCheckBox("Select All")
         self.select_all_checkbox.setStyleSheet("color: white; padding: 5px 10px; font-weight: bold;")
@@ -356,13 +409,6 @@ class MainClientApp(QMainWindow):
         self.search_input.setStyleSheet("background-color: #1E232B; color: white; padding: 5px; border-radius: 4px; border: 1px solid #4B5563;")
         self.search_input.textChanged.connect(self.filter_table)
         table_controls_layout.addWidget(self.search_input)
-
-        # Group Filter
-        self.group_filter = QComboBox()
-        self.group_filter.addItem("All Groups")
-        self.group_filter.currentTextChanged.connect(self.filter_table)
-        self.group_filter.setStyleSheet("background-color: #1E232B; color: white; padding: 5px; border-radius: 4px; border: 1px solid #4B5563;")
-        table_controls_layout.addWidget(self.group_filter)
 
         layout.addLayout(table_controls_layout)
 
@@ -386,41 +432,93 @@ class MainClientApp(QMainWindow):
 
         layout.addWidget(self.table)
 
-        # ID-Selector Toolbar (Stats Label)
+        # Bottom Bar Tracker (Stats Label)
         self.stats_label = QLabel()
         self.stats_label.setStyleSheet("font-size: 14px; font-weight: bold; color: #E2E8F0; padding: 5px;")
         layout.addWidget(self.stats_label)
 
+        main_layout.addWidget(right_panel, 1)
+
+        self.load_groups_into_sidebar()
+        self.load_profiles_into_table()
+
+    def load_groups_into_sidebar(self):
+        self.group_list_widget.clear()
+
+        all_item = QListWidgetItem("All Groups")
+        all_item.setData(Qt.ItemDataRole.UserRole, "All Groups")
+        self.group_list_widget.addItem(all_item)
+
+        default_item = QListWidgetItem("Default")
+        default_item.setData(Qt.ItemDataRole.UserRole, "Default")
+        self.group_list_widget.addItem(default_item)
+
+        groups = get_all_groups()
+        for g in groups:
+            if g['group_name'] != "Default":
+                item = QListWidgetItem(g['group_name'])
+                item.setData(Qt.ItemDataRole.UserRole, g['id'])
+                self.group_list_widget.addItem(item)
+
+        self.group_list_widget.setCurrentRow(0)
+
+    def add_new_group(self):
+        name, ok = QInputDialog.getText(self, "New Group", "Enter Group Name:")
+        if ok and name.strip():
+            success, msg = add_group(name.strip())
+            if success:
+                self.load_groups_into_sidebar()
+            else:
+                QMessageBox.warning(self, "Error", msg)
+
+    def delete_selected_group(self):
+        curr_item = self.group_list_widget.currentItem()
+        if not curr_item:
+            return
+
+        group_name = curr_item.text()
+        if group_name in ["All Groups", "Default"]:
+            QMessageBox.warning(self, "Invalid Selection", "Cannot delete default groups.")
+            return
+
+        reply = QMessageBox.question(self, 'Confirm Delete',
+                                     f"Are you sure you want to delete the group '{group_name}'?\nProfiles in this group will be moved to 'Default'.",
+                                     QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                                     QMessageBox.StandardButton.No)
+        if reply == QMessageBox.StandardButton.Yes:
+            group_id = curr_item.data(Qt.ItemDataRole.UserRole)
+            delete_group(group_id, group_name)
+            self.load_groups_into_sidebar()
+            self.load_profiles_into_table()
+
+    def on_group_selected(self, item):
         self.load_profiles_into_table()
 
     def update_stats_label(self):
         total, active, checkpoint = get_profile_stats()
         running = len(ACTIVE_DRIVERS)
-        self.stats_label.setText(f"Total Profiles: {total}  |  ✅ Active: {active}  |  ⚠️ Checkpoint: {checkpoint}  |  🌐 Browsers Running: {running}")
+        selected = 0
+        for row in range(self.table.rowCount()):
+            chk_widget = self.table.cellWidget(row, 0)
+            if chk_widget:
+                checkbox = chk_widget.findChild(QCheckBox)
+                if checkbox and checkbox.isChecked():
+                    selected += 1
+
+        self.stats_label.setText(f"Selected: {selected}  |  Running: {running}  |  Total: {total}  (Active: {active}, Checkpoint: {checkpoint})")
 
     def load_profiles_into_table(self):
         self.table.setRowCount(0)
         profiles = get_all_profiles()
 
+        curr_group_item = self.group_list_widget.currentItem()
+        current_group = "All Groups"
+        if curr_group_item:
+            current_group = curr_group_item.text()
+
         self.update_stats_label()
 
-        # Populate Group Dropdown uniquely
-        groups = {"All Groups"}
-        for p in profiles:
-            grp = p.get('group_name', 'Default')
-            groups.add(grp if grp else 'Default')
-
-        current_group = self.group_filter.currentText()
-        self.group_filter.blockSignals(True)
-        self.group_filter.clear()
-        self.group_filter.addItems(sorted(list(groups)))
-        if current_group in groups:
-            self.group_filter.setCurrentText(current_group)
-        else:
-            self.group_filter.setCurrentText("All Groups")
-        self.group_filter.blockSignals(False)
-
-        for row_idx, profile in enumerate(profiles):
+        for profile in profiles:
             # Filtering Logic
             group_name = profile.get('group_name', 'Default') or 'Default'
             if current_group != "All Groups" and current_group != group_name:
@@ -433,6 +531,8 @@ class MainClientApp(QMainWindow):
                 if not (name_match or status_match):
                     continue
 
+            # Insert at the next available visual row
+            row_idx = self.table.rowCount()
             self.table.insertRow(row_idx)
 
             # Checkbox
@@ -442,28 +542,24 @@ class MainClientApp(QMainWindow):
             chk_layout.setContentsMargins(0,0,0,0)
             checkbox = QCheckBox()
             checkbox.setProperty("profile_id", profile['id'])
+            checkbox.stateChanged.connect(self.update_stats_label) # Update selected count live
             chk_layout.addWidget(checkbox)
             self.table.setCellWidget(row_idx, 0, chk_widget)
 
             # Text Fields
             self.table.setItem(row_idx, 1, QTableWidgetItem(profile['profile_name']))
 
-            # Text Fields
-            self.table.setItem(row_idx, 1, QTableWidgetItem(profile['profile_name']))
-
             proxy_str = profile.get('account_proxy', '')
             proxy_display = proxy_str if proxy_str else "Direct IP"
-            # We append an hourglass emoji as a placeholder while the proxy health is verified
             proxy_item = QTableWidgetItem(f"⏳ {proxy_display}")
             self.table.setItem(row_idx, 2, proxy_item)
 
-            # Dispatch Proxy Health Check Worker
             if proxy_str:
                 proxy_worker = ProxyCheckWorker(row_idx, proxy_str)
                 proxy_worker.signals.result.connect(self.on_proxy_check_result)
                 self.threadpool.start(proxy_worker)
             else:
-                self.on_proxy_check_result(row_idx, True) # Direct IP is always OK visually
+                self.on_proxy_check_result(row_idx, True)
 
             self.table.setItem(row_idx, 3, QTableWidgetItem(profile.get('last_active', 'Never')))
 
@@ -482,9 +578,9 @@ class MainClientApp(QMainWindow):
 
             # Launch Button / Running Guard
             if profile['id'] in ACTIVE_DRIVERS:
-                launch_btn = QPushButton("🔴 Running")
+                launch_btn = QPushButton("🔴 Stop")
                 launch_btn.setStyleSheet("background-color: #EF4444; color: white; border-radius: 4px; padding: 5px; font-weight: bold;")
-                launch_btn.setEnabled(False)
+                launch_btn.clicked.connect(lambda checked, pid=profile['id']: self.stop_single_profile(pid))
             else:
                 launch_btn = QPushButton("🚀 Launch")
                 launch_btn.setProperty("class", "LaunchBtn")
@@ -498,6 +594,7 @@ class MainClientApp(QMainWindow):
             del_btn.setStyleSheet("background-color: #EF4444; color: white; border-radius: 4px; padding: 5px;")
             del_btn.clicked.connect(lambda checked, pid=profile['id']: self.delete_profile_handler(pid))
             self.table.setCellWidget(row_idx, 6, del_btn)
+
 
     @pyqtSlot(int, bool)
     def on_proxy_check_result(self, row_idx, is_alive):
@@ -546,7 +643,10 @@ class MainClientApp(QMainWindow):
             self.execute_disk_cleanup()
 
     def execute_bulk_group_update(self):
-        new_group, ok = QInputDialog.getText(self, "Update Group", "Enter new Group Name for selected profiles:")
+        groups = get_all_groups()
+        group_names = ["Default"] + [g['group_name'] for g in groups if g['group_name'] != "Default"]
+
+        new_group, ok = QInputDialog.getItem(self, "Move to Group", "Select target group:", group_names, 0, False)
         if ok and new_group:
             updated = 0
             for row in range(self.table.rowCount()):
@@ -555,7 +655,7 @@ class MainClientApp(QMainWindow):
                     checkbox = chk_widget.findChild(QCheckBox)
                     if checkbox and checkbox.isChecked():
                         profile_id = checkbox.property("profile_id")
-                        update_profile_group(profile_id, new_group.strip())
+                        update_profile_group(profile_id, new_group)
                         updated += 1
             if updated > 0:
                 self.load_profiles_into_table()
@@ -577,25 +677,69 @@ class MainClientApp(QMainWindow):
                 self.load_profiles_into_table()
                 QMessageBox.information(self, "Proxy Updated", f"Updated proxies for {updated} profiles.")
 
+    def stop_single_profile(self, profile_id):
+        stop_all_selected([profile_id], self.threadpool)
+        self.load_profiles_into_table()
+
+    def stop_selected_profiles(self):
+        ids_to_stop = []
+        for row in range(self.table.rowCount()):
+            chk_widget = self.table.cellWidget(row, 0)
+            if chk_widget:
+                checkbox = chk_widget.findChild(QCheckBox)
+                if checkbox and checkbox.isChecked():
+                    ids_to_stop.append(checkbox.property("profile_id"))
+        if ids_to_stop:
+            stop_all_selected(ids_to_stop, self.threadpool)
+            self.load_profiles_into_table()
+            QMessageBox.information(self, "Stopped", f"Successfully sent stop signal to {len(ids_to_stop)} browsers.")
+
     def execute_bulk_delete(self):
         reply = QMessageBox.question(self, 'Confirm Delete',
-                                     'Are you sure you want to completely delete all selected profiles? Data will be lost permanently.',
+                                     'Are you sure you want to completely delete all selected profiles? Data and local folders will be lost permanently.',
                                      QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
                                      QMessageBox.StandardButton.No)
         if reply == QMessageBox.StandardButton.Yes:
             deleted = 0
+            base_dir = os.path.dirname(os.path.abspath(__file__))
+            profiles = get_all_profiles()
+
+            ids_to_stop = []
+
             for row in range(self.table.rowCount()):
                 chk_widget = self.table.cellWidget(row, 0)
                 if chk_widget:
                     checkbox = chk_widget.findChild(QCheckBox)
                     if checkbox and checkbox.isChecked():
                         profile_id = checkbox.property("profile_id")
+                        ids_to_stop.append(profile_id)
+
+                        # Find Account ID to delete folder
+                        acc_id = None
+                        for p in profiles:
+                            if p['id'] == profile_id:
+                                acc_id = p['account_id']
+                                break
+
                         delete_profile(profile_id)
                         deleted += 1
+
+                        if acc_id:
+                            profile_dir = os.path.join(base_dir, 'profiles', f"id_{acc_id}")
+                            if os.path.exists(profile_dir):
+                                try:
+                                    shutil.rmtree(profile_dir)
+                                except Exception as e:
+                                    print(f"Failed to delete directory {profile_dir}: {e}")
+
+            # Stop any running instances that were deleted
+            if ids_to_stop:
+                 stop_all_selected(ids_to_stop, self.threadpool)
+
             if deleted > 0:
                 self.load_profiles_into_table()
                 self.populate_account_picker()
-                QMessageBox.information(self, "Profiles Deleted", f"Permanently deleted {deleted} profiles.")
+                QMessageBox.information(self, "Profiles Deleted", f"Permanently deleted {deleted} profiles and their folders.")
 
     def execute_disk_cleanup(self):
         profiles = get_all_profiles()
@@ -846,11 +990,29 @@ class MainClientApp(QMainWindow):
 
     def delete_profile_handler(self, profile_id):
         reply = QMessageBox.question(self, 'Confirm Delete',
-                                     'Are you sure you want to delete this profile? Data will be lost.',
+                                     'Are you sure you want to delete this profile? Data and local folder will be lost permanently.',
                                      QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
                                      QMessageBox.StandardButton.No)
         if reply == QMessageBox.StandardButton.Yes:
+            stop_all_selected([profile_id], self.threadpool)
+            profiles = get_all_profiles()
+            acc_id = None
+            for p in profiles:
+                if p['id'] == profile_id:
+                    acc_id = p['account_id']
+                    break
+
             delete_profile(profile_id)
+
+            if acc_id:
+                base_dir = os.path.dirname(os.path.abspath(__file__))
+                profile_dir = os.path.join(base_dir, 'profiles', f"id_{acc_id}")
+                if os.path.exists(profile_dir):
+                    try:
+                        shutil.rmtree(profile_dir)
+                    except Exception as e:
+                        print(f"Failed to delete directory {profile_dir}: {e}")
+
             self.load_profiles_into_table()
 
     def launch_single_profile(self, profile_data, task_type="Facebook Login & Home", custom_url=""):

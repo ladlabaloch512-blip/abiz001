@@ -22,6 +22,35 @@ from .database import update_last_active, update_profile_status
 # Global registry for active drivers to support right-click actions
 ACTIVE_DRIVERS = {}
 
+class StopBrowserWorker(QRunnable):
+    """Threaded worker to cleanly close browsers without freezing the UI."""
+    def __init__(self, profile_ids):
+        super().__init__()
+        self.profile_ids = profile_ids
+
+    @pyqtSlot()
+    def run(self):
+        for profile_id in self.profile_ids:
+            driver = ACTIVE_DRIVERS.get(profile_id)
+            if driver:
+                try:
+                    driver.quit()
+                except Exception as e:
+                    print(f"Error quitting driver for {profile_id}: {e}")
+                finally:
+                    if profile_id in ACTIVE_DRIVERS:
+                        del ACTIVE_DRIVERS[profile_id]
+                    update_profile_status(profile_id, 'Ready')
+
+def stop_all_selected(profile_ids, threadpool=None):
+    """Dispatches stopping logic to a background thread to prevent UI freezing."""
+    worker = StopBrowserWorker(profile_ids)
+    if threadpool:
+        threadpool.start(worker)
+    else:
+        # Fallback if no threadpool provided
+        worker.run()
+
 # Custom signals for UI updating from threads
 class WorkerSignals(QObject):
     finished = pyqtSignal(int) # profile_id

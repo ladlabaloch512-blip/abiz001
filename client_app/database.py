@@ -80,6 +80,14 @@ def init_db():
         WHERE stealth_ua IS NOT NULL AND stealth_ua != 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36'
     """)
 
+    # Create the groups table
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS groups (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            group_name TEXT NOT NULL UNIQUE
+        )
+    ''')
+
     # Indexes
     cursor.execute('CREATE INDEX IF NOT EXISTS idx_account_id ON profiles(account_id);')
     cursor.execute('CREATE INDEX IF NOT EXISTS idx_status ON profiles(status);')
@@ -239,6 +247,42 @@ def update_profile_proxy(profile_id, proxy_str):
     conn = get_db_connection()
     cursor = conn.cursor()
     cursor.execute('UPDATE profiles SET account_proxy = ? WHERE id = ?', (proxy_str, profile_id))
+    conn.commit()
+    conn.close()
+
+def get_all_groups():
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute('SELECT * FROM groups ORDER BY group_name ASC')
+        rows = cursor.fetchall()
+        conn.close()
+        return [dict(row) for row in rows]
+    except sqlite3.OperationalError:
+        return []
+
+def add_group(group_name):
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    try:
+        cursor.execute('INSERT INTO groups (group_name) VALUES (?)', (group_name,))
+        conn.commit()
+        return True, "Group added successfully."
+    except sqlite3.IntegrityError:
+        return False, "Group already exists."
+    except Exception as e:
+        return False, str(e)
+    finally:
+        conn.close()
+
+def delete_group(group_id, group_name):
+    conn = get_db_connection()
+    cursor = conn.cursor()
+
+    # Optional: Reassign profiles to 'Default' when their group is deleted
+    cursor.execute("UPDATE profiles SET group_name = 'Default' WHERE group_name = ?", (group_name,))
+
+    cursor.execute('DELETE FROM groups WHERE id = ?', (group_id,))
     conn.commit()
     conn.close()
 
