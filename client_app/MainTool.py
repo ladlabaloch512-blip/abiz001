@@ -381,90 +381,93 @@ class MainClientApp(QMainWindow):
         toolbar_layout.setContentsMargins(10, 10, 10, 10)
         toolbar_layout.setSpacing(15)
 
-        # 1. Quick Launch Menu
-        launch_btn = QPushButton("🚀 Quick Launch ▾")
-        launch_btn.setProperty("class", "LaunchBtn")
-        launch_menu = QMenu(launch_btn)
+        # 1. Bulk Operations Menu
+        bulk_ops_btn = QPushButton("🚀 Bulk Operations ▾")
+        bulk_ops_btn.setProperty("class", "LaunchBtn")
+        bulk_ops_menu = QMenu(bulk_ops_btn)
 
-        act_launch_fb = launch_menu.addAction("🚀 FB Home")
+        act_launch_fb = bulk_ops_menu.addAction("🚀 Launch FB Home")
         act_launch_fb.triggered.connect(lambda: self.launch_selected_profiles("Facebook Login & Home"))
 
-        act_launch_man = launch_menu.addAction("🕸️ Manual (Blank Tab)")
+        act_launch_man = bulk_ops_menu.addAction("🕸️ Launch Manual (Blank Tab)")
         act_launch_man.triggered.connect(lambda: self.launch_selected_profiles("Manual (Blank Tab)"))
 
-        act_launch_custom = launch_menu.addAction("🔗 Custom URL")
+        act_launch_custom = bulk_ops_menu.addAction("🔗 Custom URL")
         act_launch_custom.triggered.connect(lambda: self.launch_selected_profiles("Custom URL"))
 
-        launch_menu.addSeparator()
+        bulk_ops_menu.addSeparator()
 
-        act_status = launch_menu.addAction("🔄 Run Background Status Check")
-        act_status.triggered.connect(self.check_selected_profiles_status)
+        act_login = bulk_ops_menu.addAction("🔑 Auto-Login Session")
+        act_login.triggered.connect(self.check_selected_profiles_status)
 
-        launch_btn.setMenu(launch_menu)
-        toolbar_layout.addWidget(launch_btn)
-
-        # 2. Manage Accounts Menu
-        manage_btn = QPushButton("📁 Manage Accounts ▾")
-        manage_btn.setProperty("class", "PrimaryAction")
-        manage_menu = QMenu(manage_btn)
-
-        act_add_prof = manage_menu.addAction("➕ Add Single Profile")
-        act_add_prof.triggered.connect(self.open_add_profile_dialog)
-
-        act_bulk_create = manage_menu.addAction("🔢 Bulk Empty Create")
-        act_bulk_create.triggered.connect(self.bulk_empty_create)
-
-        manage_menu.addSeparator()
-
-        act_stop = manage_menu.addAction("🛑 Stop Selected Browsers")
+        act_stop = bulk_ops_menu.addAction("🛑 Stop Selected")
         act_stop.triggered.connect(self.stop_selected_profiles)
 
-        act_del = manage_menu.addAction("🗑️ Delete Selected Permanently")
-        act_del.triggered.connect(self.execute_bulk_delete)
+        bulk_ops_btn.setMenu(bulk_ops_menu)
+        toolbar_layout.addWidget(bulk_ops_btn)
 
-        manage_btn.setMenu(manage_menu)
-        toolbar_layout.addWidget(manage_btn)
+        # 2. Import / Export Menu
+        io_btn = QPushButton("📂 Import / Export ▾")
+        io_btn.setProperty("class", "PrimaryAction")
+        io_menu = QMenu(io_btn)
 
-        # 3. Data & Import Menu
-        data_btn = QPushButton("🍪 Data & Import ▾")
-        data_btn.setProperty("class", "SecondaryAction")
-        data_menu = QMenu(data_btn)
-
-        act_imp_txt = data_menu.addAction("📂 Import from TXT")
+        act_imp_txt = io_menu.addAction("📄 Import from TXT")
         act_imp_txt.triggered.connect(self.import_profiles_from_txt)
 
-        data_menu.addSeparator()
-
-        act_imp_cook_fldr = data_menu.addAction("📁 Bulk Cookie Folder")
+        act_imp_cook_fldr = io_menu.addAction("📁 Bulk Cookie Folder")
         act_imp_cook_fldr.triggered.connect(self.import_via_cookies)
 
-        act_imp_cook_file = data_menu.addAction("🍪 Import Single Cookie File")
-        act_imp_cook_file.triggered.connect(self.import_cookie_file)
+        io_menu.addSeparator()
 
-        data_btn.setMenu(data_menu)
-        toolbar_layout.addWidget(data_btn)
+        act_export = io_menu.addAction("📤 Export Selected (ZIP)")
+        act_export.triggered.connect(self.execute_bulk_export)
 
-        # 4. Maintenance Menu
-        maint_btn = QPushButton("⚙️ Maintenance ▾")
+        act_import_backup = io_menu.addAction("📥 Import Backup (Restore)")
+        act_import_backup.triggered.connect(self.execute_import_backup)
+
+        io_btn.setMenu(io_menu)
+        toolbar_layout.addWidget(io_btn)
+
+        # 3. Management Menu
+        maint_btn = QPushButton("⚙️ Management ▾")
         maint_btn.setProperty("class", "SecondaryAction")
         maint_menu = QMenu(maint_btn)
 
-        act_upd_proxy = maint_menu.addAction("🔄 Update Proxies")
+        act_add_prof = maint_menu.addAction("➕ Add Single Profile")
+        act_add_prof.triggered.connect(self.open_add_profile_dialog)
+
+        act_bulk_create = maint_menu.addAction("🔢 Bulk Empty Create")
+        act_bulk_create.triggered.connect(self.bulk_empty_create)
+
+        maint_menu.addSeparator()
+
+        act_upd_proxy = maint_menu.addAction("🔄 Bulk Proxy Update")
         act_upd_proxy.triggered.connect(self.execute_bulk_proxy_update)
 
-        act_move_grp = maint_menu.addAction("📂 Move to Group")
+        act_move_grp = maint_menu.addAction("📂 Change Group")
         act_move_grp.triggered.connect(self.execute_bulk_group_update)
 
         maint_menu.addSeparator()
 
-        act_export = maint_menu.addAction("📤 Bulk Export Profiles")
-        act_export.triggered.connect(self.execute_bulk_export)
-
-        act_wipe_cache = maint_menu.addAction("🧹 Clear Temp Cache Data")
-        act_wipe_cache.triggered.connect(self.execute_disk_cleanup)
+        act_del = maint_menu.addAction("🗑️ Bulk Delete (Physical Wipe)")
+        act_del.triggered.connect(self.execute_bulk_delete)
 
         maint_btn.setMenu(maint_menu)
         toolbar_layout.addWidget(maint_btn)
+
+        # 4. Groups Menu
+        groups_btn = QPushButton("👥 Groups ▾")
+        groups_btn.setProperty("class", "SecondaryAction")
+        groups_menu = QMenu(groups_btn)
+
+        act_add_grp = groups_menu.addAction("➕ New Group")
+        act_add_grp.triggered.connect(self.add_new_group)
+
+        act_del_grp = groups_menu.addAction("🗑️ Delete Current Group")
+        act_del_grp.triggered.connect(self.delete_selected_group)
+
+        groups_btn.setMenu(groups_menu)
+        toolbar_layout.addWidget(groups_btn)
 
         toolbar_layout.addStretch()
 
@@ -487,6 +490,8 @@ class MainClientApp(QMainWindow):
         self.table.setHorizontalHeaderLabels(["", "Profile Name", "Proxy", "Last Active", "Status", "⚙️ Manage"])
         self.table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
         self.table.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.ResizeToContents) # Checkbox col
+        self.table.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch) # Profile Name Stretch
+        self.table.horizontalHeader().setSectionResizeMode(2, QHeaderView.ResizeMode.Stretch) # Proxy Stretch
         self.table.horizontalHeader().setSectionResizeMode(5, QHeaderView.ResizeMode.ResizeToContents) # Manage col
 
         self.table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
@@ -666,6 +671,9 @@ class MainClientApp(QMainWindow):
             act_launch_man = manage_menu.addAction("🕸️ Launch Manual (Blank Page)")
             act_launch_man.triggered.connect(lambda checked, p=profile: self.launch_single_profile(p, "Manual (Blank Tab)", ""))
 
+            act_login = manage_menu.addAction("🔑 Auto-Login Session")
+            act_login.triggered.connect(lambda checked, p=profile: self.check_single_profile_status(p))
+
             manage_menu.addSeparator()
 
             act_cookie = manage_menu.addAction("🍪 Export/Update Cookies")
@@ -801,26 +809,89 @@ class MainClientApp(QMainWindow):
         exported_count = 0
         try:
             with zipfile.ZipFile(zip_path, 'w', zipfile.ZIP_DEFLATED) as zipf:
-                # 1. Include Database for Metadata Sync
+                # 1. Include Database for Global Sync
                 if os.path.exists(db_path):
                     zipf.write(db_path, 'sys_config.db')
 
-                # 2. Iterate and Compress Selected Profile Directories
+                # 2. Iterate and Compress Selected Profile Directories + Generate specific metadata
                 for p in profiles:
                     if p['id'] in selected_ids:
                         target_folder = os.path.join(profiles_base, f"id_{p['account_id']}")
                         if os.path.exists(target_folder):
                             exported_count += 1
+
+                            # Write physical folder
                             for root, dirs, files in os.walk(target_folder):
                                 for file in files:
                                     file_path = os.path.join(root, file)
-                                    # Add to zip relative to the 'profiles' directory
                                     arcname = os.path.relpath(file_path, base_dir)
                                     zipf.write(file_path, arcname)
+
+                            # Inject isolated metadata.json into the profile's archive directory
+                            meta_str = json.dumps(p, indent=4)
+                            zipf.writestr(f"profiles/id_{p['account_id']}/metadata.json", meta_str)
 
             QMessageBox.information(self, "Export Complete", f"Successfully exported {exported_count} profiles to:\n{zip_path}")
         except Exception as e:
             QMessageBox.critical(self, "Export Error", f"Failed to export profiles:\n{e}")
+
+    def execute_import_backup(self):
+        options = QFileDialog.Option.DontUseNativeDialog
+        file_path, _ = QFileDialog.getOpenFileName(self, "Select Backup ZIP File", "", "ZIP Files (*.zip)", options=options)
+
+        if not file_path:
+            return
+
+        base_dir = os.path.dirname(os.path.abspath(__file__))
+        profiles_base = os.path.join(base_dir, 'profiles')
+
+        imported_count = 0
+        try:
+            with zipfile.ZipFile(file_path, 'r') as zipf:
+                # Iterate through members to identify distinct profiles using metadata.json
+                for member in zipf.namelist():
+                    if member.endswith('metadata.json'):
+                        # Read the metadata
+                        with zipf.open(member) as f:
+                            meta_data = json.loads(f.read().decode('utf-8'))
+
+                        old_acc_id = meta_data.get('account_id')
+                        if not old_acc_id:
+                            continue
+
+                        # Generate new ID mapping
+                        new_acc_id = str(uuid.uuid4())[:8]
+                        next_seq = get_next_sequential_id()
+                        new_profile_name = f"id{next_seq}"
+
+                        # Add to DB
+                        success, _ = add_profile(new_profile_name, new_acc_id,
+                                               meta_data.get('account_proxy', ''),
+                                               meta_data.get('custom_user_agent', ''),
+                                               meta_data.get('email', ''),
+                                               meta_data.get('password', ''))
+                        if success:
+                            imported_count += 1
+                            target_dir = os.path.join(profiles_base, f"id_{new_acc_id}")
+                            os.makedirs(target_dir, exist_ok=True)
+
+                            # Extract specific profile contents from ZIP, remapping paths
+                            old_prefix = f"profiles/id_{old_acc_id}/"
+                            for sub_member in zipf.namelist():
+                                if sub_member.startswith(old_prefix) and not sub_member.endswith('metadata.json'):
+                                    rel_path = sub_member[len(old_prefix):]
+                                    if rel_path:
+                                        out_path = os.path.join(target_dir, rel_path)
+                                        os.makedirs(os.path.dirname(out_path), exist_ok=True)
+                                        if not sub_member.endswith('/'): # Not a directory marker
+                                            with zipf.open(sub_member) as source, open(out_path, "wb") as target:
+                                                shutil.copyfileobj(source, target)
+
+            self.load_profiles_into_table()
+            self.populate_account_picker()
+            QMessageBox.information(self, "Restore Complete", f"Successfully restored {imported_count} profiles from backup.")
+        except Exception as e:
+            QMessageBox.critical(self, "Restore Error", f"Failed to restore profiles:\n{e}")
 
     def execute_bulk_proxy_update(self):
         new_proxy, ok = QInputDialog.getText(self, "Update Proxy", "Enter new Proxy (IP:PORT or IP:PORT:USER:PASS):")
@@ -856,8 +927,24 @@ class MainClientApp(QMainWindow):
             QMessageBox.information(self, "Stopped", f"Successfully sent stop signal to {len(ids_to_stop)} browsers.")
 
     def execute_bulk_delete(self):
-        reply = QMessageBox.question(self, 'Confirm Delete',
-                                     'Are you sure you want to completely delete all selected profiles? Data and local folders will be lost permanently.',
+        selected_ids = []
+        for row in range(self.table.rowCount()):
+            chk_widget = self.table.cellWidget(row, 0)
+            if chk_widget:
+                checkbox = chk_widget.findChild(QCheckBox)
+                if checkbox and checkbox.isChecked():
+                    selected_ids.append(checkbox.property("profile_id"))
+
+        if not selected_ids:
+            return
+
+        for profile_id in selected_ids:
+            if profile_id in ACTIVE_DRIVERS:
+                QMessageBox.warning(self, "Deletion Aborted", "One or more selected profiles are currently running.\nPlease Stop the browsers before attempting to delete them to avoid file lock errors.")
+                return
+
+        reply = QMessageBox.question(self, 'Confirm Hard Delete',
+                                     'Are you sure you want to PERMANENTLY delete all selected profiles?\nThis will completely wipe their folders from your storage.',
                                      QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
                                      QMessageBox.StandardButton.No)
         if reply == QMessageBox.StandardButton.Yes:
@@ -865,42 +952,28 @@ class MainClientApp(QMainWindow):
             base_dir = os.path.dirname(os.path.abspath(__file__))
             profiles = get_all_profiles()
 
-            ids_to_stop = []
+            for profile_id in selected_ids:
+                acc_id = None
+                for p in profiles:
+                    if p['id'] == profile_id:
+                        acc_id = p['account_id']
+                        break
 
-            for row in range(self.table.rowCount()):
-                chk_widget = self.table.cellWidget(row, 0)
-                if chk_widget:
-                    checkbox = chk_widget.findChild(QCheckBox)
-                    if checkbox and checkbox.isChecked():
-                        profile_id = checkbox.property("profile_id")
-                        ids_to_stop.append(profile_id)
+                delete_profile(profile_id)
+                deleted += 1
 
-                        # Find Account ID to delete folder
-                        acc_id = None
-                        for p in profiles:
-                            if p['id'] == profile_id:
-                                acc_id = p['account_id']
-                                break
-
-                        delete_profile(profile_id)
-                        deleted += 1
-
-                        if acc_id:
-                            profile_dir = os.path.join(base_dir, 'profiles', f"id_{acc_id}")
-                            if os.path.exists(profile_dir):
-                                try:
-                                    shutil.rmtree(profile_dir)
-                                except Exception as e:
-                                    print(f"Failed to delete directory {profile_dir}: {e}")
-
-            # Stop any running instances that were deleted
-            if ids_to_stop:
-                 stop_all_selected(ids_to_stop, self.threadpool)
+                if acc_id:
+                    profile_dir = os.path.join(base_dir, 'profiles', f"id_{acc_id}")
+                    if os.path.exists(profile_dir):
+                        try:
+                            shutil.rmtree(profile_dir)
+                        except Exception as e:
+                            print(f"Failed to delete directory {profile_dir}: {e}")
 
             if deleted > 0:
                 self.load_profiles_into_table()
                 self.populate_account_picker()
-                QMessageBox.information(self, "Profiles Deleted", f"Permanently deleted {deleted} profiles and their folders.")
+                QMessageBox.information(self, "Hard Delete Complete", f"Permanently deleted {deleted} profiles and wiped their storage folders.")
 
     def execute_disk_cleanup(self):
         profiles = get_all_profiles()
@@ -1152,12 +1225,15 @@ class MainClientApp(QMainWindow):
                 QMessageBox.critical(self, "Database Error", msg)
 
     def delete_profile_handler(self, profile_id):
-        reply = QMessageBox.question(self, 'Confirm Delete',
-                                     'Are you sure you want to delete this profile? Data and local folder will be lost permanently.',
+        if profile_id in ACTIVE_DRIVERS:
+            QMessageBox.warning(self, "Deletion Aborted", "This profile is currently running.\nPlease Stop the browser before attempting to delete it to avoid file lock errors.")
+            return
+
+        reply = QMessageBox.question(self, 'Confirm Hard Delete',
+                                     'Are you sure you want to PERMANENTLY delete this profile?\nThis will completely wipe its folder from your storage.',
                                      QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
                                      QMessageBox.StandardButton.No)
         if reply == QMessageBox.StandardButton.Yes:
-            stop_all_selected([profile_id], self.threadpool)
             profiles = get_all_profiles()
             acc_id = None
             for p in profiles:
@@ -1188,6 +1264,15 @@ class MainClientApp(QMainWindow):
         # Update UI instantly to show 'Running' Guard
         self.load_profiles_into_table()
 
+    def check_single_profile_status(self, profile_data):
+        print(f"Auto-Login/Checking status for {profile_data['profile_name']} on background thread...")
+        worker = AccountMonitorWorker(profile_data)
+        worker.signals.finished.connect(self.on_browser_closed)
+        worker.signals.error.connect(self.on_browser_error)
+        worker.signals.status_update.connect(self.on_status_update)
+        self.threadpool.start(worker)
+        self.load_profiles_into_table()
+
     def check_selected_profiles_status(self):
         profiles = get_all_profiles()
         launched = 0
@@ -1199,14 +1284,10 @@ class MainClientApp(QMainWindow):
                     profile_id = checkbox.property("profile_id")
                     for p in profiles:
                         if p['id'] == profile_id:
-                            worker = AccountMonitorWorker(p)
-                            worker.signals.finished.connect(self.on_browser_closed)
-                            worker.signals.error.connect(self.on_browser_error)
-                            self.threadpool.start(worker)
+                            self.check_single_profile_status(p)
                             launched += 1
                             break
         if launched > 0:
-            self.load_profiles_into_table() # Trigger Running Guard UI updates immediately
             QMessageBox.information(self, "Status Check Started", f"Queued {launched} accounts for Auto-Login & Status Check.\nThe table will update automatically.")
         else:
             QMessageBox.warning(self, "No Selection", "Please select at least one account.")
