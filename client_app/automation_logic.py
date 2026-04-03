@@ -16,8 +16,10 @@ from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.chrome.options import Options
+from webdriver_manager.chrome import ChromeDriverManager
 from PyQt6.QtCore import QRunnable, pyqtSlot, QObject, pyqtSignal
 from .database import update_last_active, update_profile_status
+from shared_logic.utils import get_app_dir
 
 # Global registry for active drivers to support right-click actions
 ACTIVE_DRIVERS = {}
@@ -228,9 +230,10 @@ class BrowserLauncherWorker(BaseBrowserWorker):
     QRunnable thread instance to launch and maintain a single Chrome browser instance.
     This prevents the PyQt6 UI from freezing when launching multiple profiles.
     """
-    def __init__(self, profile_data, task_type="Manual", custom_url=""):
+    def __init__(self, profile_data, driver_executable_path=None, task_type="Manual", custom_url=""):
         super().__init__()
         self.profile = profile_data
+        self.driver_executable_path = driver_executable_path
         self.task_type = task_type
         self.custom_url = custom_url
         self.signals = WorkerSignals()
@@ -243,11 +246,11 @@ class BrowserLauncherWorker(BaseBrowserWorker):
             account_id = self.profile['account_id']
             proxy_str = self.profile.get('account_proxy', '').strip()
 
-            # 1. Define Paths
-            base_dir = os.path.dirname(os.path.abspath(__file__))
+            # 1. Define Paths (Uses compiled execution path reliably)
+            base_dir = get_app_dir()
 
             # Profile Isolation: Unique user-data-dir per ID
-            profile_dir = os.path.abspath(os.path.join(base_dir, 'profiles', f'id_{account_id}'))
+            profile_dir = os.path.join(base_dir, 'profiles', f'id_{account_id}')
             os.makedirs(profile_dir, exist_ok=True)
 
             # Setup Chrome Options
@@ -284,18 +287,27 @@ class BrowserLauncherWorker(BaseBrowserWorker):
             if user_agent:
                 options.add_argument(f'--user-agent={user_agent}')
 
-            # 5. Launch Browser natively via system Chrome using UC Auto-Patcher
+            # 5. Launch via system Chrome using auto-downloaded driver
             self.force_clean_locks(profile_dir)
 
+            # Use global driver executable path if provided
             try:
-                driver = uc.Chrome(
-                    options=options,
-                    no_first_run=True,
-                    user_data_dir=profile_dir,
-                    version_main=146
-                )
+                if self.driver_executable_path:
+                    driver = uc.Chrome(
+                        options=options,
+                        no_first_run=True,
+                        user_data_dir=profile_dir,
+                        driver_executable_path=self.driver_executable_path
+                    )
+                else:
+                    driver = uc.Chrome(
+                        options=options,
+                        no_first_run=True,
+                        user_data_dir=profile_dir,
+                        version_main=146
+                    )
             except Exception as uc_err:
-                print(f"[{account_id}] Warning: Failed to launch with version_main=146, trying default: {uc_err}")
+                print(f"[{account_id}] Warning: Failed to launch explicit or versioned driver: {uc_err}")
                 driver = uc.Chrome(
                     options=options,
                     no_first_run=True,
@@ -435,9 +447,10 @@ class MarketplaceTaskWorker(BaseBrowserWorker):
     """
     QRunnable thread instance to launch Chrome, navigate to FB Marketplace, and post a queue of service listings.
     """
-    def __init__(self, profile_data, listing_queue):
+    def __init__(self, profile_data, driver_executable_path, listing_queue):
         super().__init__()
         self.profile = profile_data
+        self.driver_executable_path = driver_executable_path
         self.listing_queue = listing_queue # Expects a list of dictionaries
         self.signals = WorkerSignals()
 
@@ -475,7 +488,7 @@ class MarketplaceTaskWorker(BaseBrowserWorker):
                     r, g, b, a = pixels[x, y]
                     pixels[x, y] = (min(r+1, 255), g, b, a)
 
-                base_dir = os.path.dirname(os.path.abspath(__file__))
+                base_dir = get_app_dir()
                 temp_dir = os.path.join(base_dir, 'temp_images')
                 os.makedirs(temp_dir, exist_ok=True)
 
@@ -544,10 +557,10 @@ class MarketplaceTaskWorker(BaseBrowserWorker):
         try:
             profile_id = self.profile['id']
             account_id = self.profile['account_id']
-            base_dir = os.path.dirname(os.path.abspath(__file__))
+            base_dir = get_app_dir()
 
             # Paths
-            profile_dir = os.path.abspath(os.path.join(base_dir, 'profiles', f'id_{account_id}'))
+            profile_dir = os.path.join(base_dir, 'profiles', f'id_{account_id}')
             os.makedirs(profile_dir, exist_ok=True)
 
             options = uc.ChromeOptions()
@@ -580,14 +593,22 @@ class MarketplaceTaskWorker(BaseBrowserWorker):
             self.force_clean_locks(profile_dir)
 
             try:
-                driver = uc.Chrome(
-                    options=options,
-                    no_first_run=True,
-                    user_data_dir=profile_dir,
-                    version_main=146
-                )
+                if self.driver_executable_path:
+                    driver = uc.Chrome(
+                        options=options,
+                        no_first_run=True,
+                        user_data_dir=profile_dir,
+                        driver_executable_path=self.driver_executable_path
+                    )
+                else:
+                    driver = uc.Chrome(
+                        options=options,
+                        no_first_run=True,
+                        user_data_dir=profile_dir,
+                        version_main=146
+                    )
             except Exception as uc_err:
-                print(f"[{account_id}] Warning: Failed to launch with version_main=146, trying default: {uc_err}")
+                print(f"[{account_id}] Warning: Failed to launch explicit or versioned driver: {uc_err}")
                 driver = uc.Chrome(
                     options=options,
                     no_first_run=True,
@@ -711,9 +732,10 @@ class CookieExportWorker(BaseBrowserWorker):
     """
     QRunnable thread to launch Chrome headless, steal the session cookies, and save them to a user-defined location.
     """
-    def __init__(self, profile_data, save_path):
+    def __init__(self, profile_data, driver_executable_path, save_path):
         super().__init__()
         self.profile = profile_data
+        self.driver_executable_path = driver_executable_path
         self.save_path = save_path
         self.signals = WorkerSignals()
 
@@ -722,8 +744,8 @@ class CookieExportWorker(BaseBrowserWorker):
         driver = None
         try:
             account_id = self.profile['account_id']
-            base_dir = os.path.dirname(os.path.abspath(__file__))
-            profile_dir = os.path.abspath(os.path.join(base_dir, 'profiles', f'id_{account_id}'))
+            base_dir = get_app_dir()
+            profile_dir = os.path.join(base_dir, 'profiles', f'id_{account_id}')
 
             options = uc.ChromeOptions()
             options.add_argument("--disable-blink-features=AutomationControlled")
@@ -745,14 +767,22 @@ class CookieExportWorker(BaseBrowserWorker):
             self.force_clean_locks(profile_dir)
 
             try:
-                driver = uc.Chrome(
-                    options=options,
-                    no_first_run=True,
-                    user_data_dir=profile_dir,
-                    version_main=146
-                )
+                if self.driver_executable_path:
+                    driver = uc.Chrome(
+                        options=options,
+                        no_first_run=True,
+                        user_data_dir=profile_dir,
+                        driver_executable_path=self.driver_executable_path
+                    )
+                else:
+                    driver = uc.Chrome(
+                        options=options,
+                        no_first_run=True,
+                        user_data_dir=profile_dir,
+                        version_main=146
+                    )
             except Exception as uc_err:
-                print(f"[{account_id}] Warning: Failed to launch with version_main=146, trying default: {uc_err}")
+                print(f"[{account_id}] Warning: Failed to launch explicit or versioned driver: {uc_err}")
                 driver = uc.Chrome(
                     options=options,
                     no_first_run=True,
@@ -787,9 +817,10 @@ class AccountMonitorWorker(BaseBrowserWorker):
     """
     QRunnable thread instance to auto-login to FB, check status, and update the DB.
     """
-    def __init__(self, profile_data):
+    def __init__(self, profile_data, driver_executable_path=None):
         super().__init__()
         self.profile = profile_data
+        self.driver_executable_path = driver_executable_path
         self.signals = WorkerSignals()
 
     @pyqtSlot()
@@ -801,8 +832,8 @@ class AccountMonitorWorker(BaseBrowserWorker):
             email = self.profile.get('email', '').strip()
             password = self.profile.get('password', '').strip()
 
-            base_dir = os.path.dirname(os.path.abspath(__file__))
-            profile_dir = os.path.abspath(os.path.join(base_dir, 'profiles', f'id_{account_id}'))
+            base_dir = get_app_dir()
+            profile_dir = os.path.join(base_dir, 'profiles', f'id_{account_id}')
 
             options = uc.ChromeOptions()
             options.add_argument("--disable-blink-features=AutomationControlled")
@@ -833,14 +864,22 @@ class AccountMonitorWorker(BaseBrowserWorker):
             self.force_clean_locks(profile_dir)
 
             try:
-                driver = uc.Chrome(
-                    options=options,
-                    no_first_run=True,
-                    user_data_dir=profile_dir,
-                    version_main=146
-                )
+                if self.driver_executable_path:
+                    driver = uc.Chrome(
+                        options=options,
+                        no_first_run=True,
+                        user_data_dir=profile_dir,
+                        driver_executable_path=self.driver_executable_path
+                    )
+                else:
+                    driver = uc.Chrome(
+                        options=options,
+                        no_first_run=True,
+                        user_data_dir=profile_dir,
+                        version_main=146
+                    )
             except Exception as uc_err:
-                print(f"[{account_id}] Warning: Failed to launch with version_main=146, trying default: {uc_err}")
+                print(f"[{account_id}] Warning: Failed to launch explicit or versioned driver: {uc_err}")
                 driver = uc.Chrome(
                     options=options,
                     no_first_run=True,

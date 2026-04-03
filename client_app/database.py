@@ -5,14 +5,20 @@ import sys
 # Ensure shared_logic can be imported
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from shared_logic.config import DB_NAME
+from shared_logic.utils import get_app_dir
 
 def get_db_connection():
     """
     Establish and return a connection to the SQLite database.
     Creates the database file if it doesn't exist.
-    Resolves the DB path relative to this script's location.
+    Resolves the DB path relative to the final executable's location.
     """
-    db_path = os.path.join(os.path.dirname(__file__), DB_NAME)
+    base_dir = get_app_dir()
+    db_path = os.path.join(base_dir, DB_NAME)
+
+    # Ensure the directory exists if running as an executable
+    os.makedirs(os.path.dirname(db_path), exist_ok=True)
+
     conn = sqlite3.connect(db_path)
     conn.row_factory = sqlite3.Row
     return conn
@@ -297,5 +303,5 @@ def delete_group(group_id, group_name):
 if __name__ == '__main__':
     # Initialize the DB if run as a script directly
     init_db()
-    db_path = os.path.join(os.path.dirname(__file__), DB_NAME)
+    db_path = os.path.join(get_app_dir(), DB_NAME)
     print(f"Database '{DB_NAME}' initialized successfully at {db_path}")

@@ -20,12 +20,14 @@ from shared_logic.security import verify_license, get_hardware_uuid
 from shared_logic.config import BUY_LINK
 import requests # For "What is my IP" check if needed or just redirect
 import psutil
+from webdriver_manager.chrome import ChromeDriverManager
 
 import requests # For proxy health check
 
 # Import Module 2, 3 and Multi-Account Engine Logic
 from client_app.database import init_db, get_all_profiles, add_profile, delete_profile, get_next_sequential_id, get_profile_stats, bulk_insert_profiles, update_profile_group, update_profile_proxy, get_all_groups, add_group, delete_group
 from client_app.automation_logic import BrowserLauncherWorker, MarketplaceTaskWorker, AccountMonitorWorker, ACTIVE_DRIVERS, stop_all_selected, CookieExportWorker
+from shared_logic.utils import get_app_dir
 
 class ProxyCheckSignals(QObject):
     result = pyqtSignal(int, bool) # row_idx, is_alive
@@ -117,14 +119,28 @@ class MainClientApp(QMainWindow):
         print(f"Multithreading with maximum {self.threadpool.maxThreadCount()} threads")
 
         self.load_stylesheet()
+        self.check_and_download_driver()
         self.init_ui()
         self.check_license_on_startup()
 
     def load_stylesheet(self):
-        qss_path = os.path.join(os.path.dirname(__file__), 'styles.qss')
+        qss_path = os.path.join(get_app_dir(), 'styles.qss')
         if os.path.exists(qss_path):
-            with open(qss_path, 'r') as f:
+            with open(qss_path, 'r', encoding='utf-8') as f:
                 self.setStyleSheet(f.read())
+
+    def check_and_download_driver(self):
+        """Runs once at startup to download Chrome Driver and save it permanently to ./bin/driver/"""
+        try:
+            print("Checking/Updating Auto-Driver Engine...")
+            driver_dir = os.path.join(get_app_dir(), 'bin', 'driver')
+            os.makedirs(driver_dir, exist_ok=True)
+            # This downloads the driver matching the system Chrome and returns its absolute path
+            self.global_driver_path = ChromeDriverManager(path=driver_dir).install()
+            print(f"Driver ready at: {self.global_driver_path}")
+        except Exception as e:
+            print(f"Failed to auto-update driver: {e}")
+            self.global_driver_path = None
 
     def init_ui(self):
         self.setWindowTitle('FB Multi-Account Manager - Client Tool')
@@ -266,7 +282,7 @@ class MainClientApp(QMainWindow):
         sender.setChecked(True)
 
     def check_license_on_startup(self):
-        license_path = os.path.join(os.path.dirname(__file__), 'license.dat')
+        license_path = os.path.join(get_app_dir(), 'license.dat')
 
         is_valid, message = verify_license(license_path)
         if is_valid:
@@ -812,7 +828,7 @@ class MainClientApp(QMainWindow):
             return
 
         profiles = get_all_profiles()
-        base_dir = os.path.dirname(os.path.abspath(__file__))
+        base_dir = get_app_dir()
         db_path = os.path.join(base_dir, 'sys_config.db')
         profiles_base = os.path.join(base_dir, 'profiles')
 
@@ -857,7 +873,7 @@ class MainClientApp(QMainWindow):
         if not file_path:
             return
 
-        base_dir = os.path.dirname(os.path.abspath(__file__))
+        base_dir = get_app_dir()
         profiles_base = os.path.join(base_dir, 'profiles')
 
         imported_count = 0
@@ -966,7 +982,7 @@ class MainClientApp(QMainWindow):
                                      QMessageBox.StandardButton.No)
         if reply == QMessageBox.StandardButton.Yes:
             deleted = 0
-            base_dir = os.path.dirname(os.path.abspath(__file__))
+            base_dir = get_app_dir()
             profiles = get_all_profiles()
 
             for profile_id in selected_ids:
@@ -995,7 +1011,7 @@ class MainClientApp(QMainWindow):
     def execute_disk_cleanup(self):
         profiles = get_all_profiles()
         cleaned = 0
-        base_dir = os.path.dirname(os.path.abspath(__file__))
+        base_dir = get_app_dir()
 
         for row in range(self.table.rowCount()):
             chk_widget = self.table.cellWidget(row, 0)
@@ -1080,7 +1096,7 @@ class MainClientApp(QMainWindow):
         next_id = get_next_sequential_id()
         profiles_to_insert = []
 
-        base_dir = os.path.dirname(os.path.abspath(__file__))
+        base_dir = get_app_dir()
         profiles_base = os.path.join(base_dir, 'profiles')
 
         try:
@@ -1123,7 +1139,7 @@ class MainClientApp(QMainWindow):
             next_id = get_next_sequential_id()
             profiles_to_insert = []
 
-            base_dir = os.path.dirname(os.path.abspath(__file__))
+            base_dir = get_app_dir()
             profiles_base = os.path.join(base_dir, 'profiles')
 
             for i in range(count):
@@ -1178,7 +1194,7 @@ class MainClientApp(QMainWindow):
         if not file_path:
             return
 
-        base_dir = os.path.dirname(os.path.abspath(__file__))
+        base_dir = get_app_dir()
         profiles_base = os.path.join(base_dir, 'profiles')
 
         file_name = os.path.basename(file_path)
@@ -1200,7 +1216,7 @@ class MainClientApp(QMainWindow):
 
         imported = 0
         next_id = get_next_sequential_id()
-        base_dir = os.path.dirname(os.path.abspath(__file__))
+        base_dir = get_app_dir()
         profiles_base = os.path.join(base_dir, 'profiles')
 
         for file_name in os.listdir(folder_path):
@@ -1263,7 +1279,7 @@ class MainClientApp(QMainWindow):
             delete_profile(profile_id)
 
             if acc_id:
-                base_dir = os.path.dirname(os.path.abspath(__file__))
+                base_dir = get_app_dir()
                 profile_dir = os.path.join(base_dir, 'profiles', f"id_{acc_id}")
                 if os.path.exists(profile_dir):
                     try:
@@ -1275,7 +1291,7 @@ class MainClientApp(QMainWindow):
 
     def launch_single_profile(self, profile_data, task_type="Facebook Login & Home", custom_url=""):
         print(f"Launching profile {profile_data['profile_name']} on background thread...")
-        worker = BrowserLauncherWorker(profile_data, task_type, custom_url)
+        worker = BrowserLauncherWorker(profile_data, getattr(self, 'global_driver_path', None), task_type, custom_url)
         worker.signals.finished.connect(self.on_browser_closed)
         worker.signals.error.connect(self.on_browser_error)
         worker.signals.status_update.connect(self.on_status_update)
@@ -1784,7 +1800,7 @@ class MainClientApp(QMainWindow):
         if not file_path:
             return
 
-        base_dir = os.path.dirname(os.path.abspath(__file__))
+        base_dir = get_app_dir()
         target_dir = os.path.join(base_dir, 'profiles', f"id_{profile_data['account_id']}")
         os.makedirs(target_dir, exist_ok=True)
 
