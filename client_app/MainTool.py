@@ -25,7 +25,7 @@ import requests # For proxy health check
 
 # Import Module 2, 3 and Multi-Account Engine Logic
 from client_app.database import init_db, get_all_profiles, add_profile, delete_profile, get_next_sequential_id, get_profile_stats, bulk_insert_profiles, update_profile_group, update_profile_proxy, get_all_groups, add_group, delete_group
-from client_app.automation_logic import BrowserLauncherWorker, MarketplaceTaskWorker, AccountMonitorWorker, ACTIVE_DRIVERS, stop_all_selected
+from client_app.automation_logic import BrowserLauncherWorker, MarketplaceTaskWorker, AccountMonitorWorker, ACTIVE_DRIVERS, stop_all_selected, CookieExportWorker
 
 class ProxyCheckSignals(QObject):
     result = pyqtSignal(int, bool) # row_idx, is_alive
@@ -248,13 +248,13 @@ class MainClientApp(QMainWindow):
                     pass
             chrome_ram_gb = chrome_ram_mb / 1024
 
-            # Simple calculation: 600MB (~0.6GB) per Chromium profile
-            max_profiles = int((mem.available / (1024 ** 2)) / 600)
+            # Dynamic Recommender logic based on 800MB per Chromium instance
+            max_profiles = int((mem.available / (1024 ** 2)) / 800)
 
-            self.hw_stats_label.setText(f"CPU Load: {cpu_usage}%\nChrome Mem: {chrome_ram_gb:.1f} GB\nFree Mem: {free_ram_gb:.1f}/{total_ram_gb:.1f} GB")
+            self.hw_stats_label.setText(f"CPU Usage: {cpu_usage}%\nApp Memory: {int(chrome_ram_mb)} MB\nAvailable System RAM: {free_ram_gb:.1f} GB / {total_ram_gb:.1f} GB")
 
             active_count = len(ACTIVE_DRIVERS)
-            self.ai_rec_label.setText(f"Active Browsers: {active_count}\nMax Recommended: {max_profiles}")
+            self.ai_rec_label.setText(f"Active Browsers: {active_count}\nRecommended Active Profiles for your PC: {max_profiles}")
         except Exception as e:
             self.hw_stats_label.setText("Hardware data unavailable")
 
@@ -672,7 +672,7 @@ class MainClientApp(QMainWindow):
             """)
 
             # Logic binds
-            act_launch_fb = manage_menu.addAction("🚀 Launch Browser (FB Home)")
+            act_launch_fb = manage_menu.addAction("🚀 Launch Browser (Default Goal)")
             act_launch_fb.triggered.connect(lambda checked, p=profile: self.launch_single_profile(p, "Facebook Login & Home", ""))
 
             act_launch_man = manage_menu.addAction("🕸️ Launch Manual (Blank Page)")
@@ -683,10 +683,15 @@ class MainClientApp(QMainWindow):
 
             manage_menu.addSeparator()
 
-            act_export_cookie = manage_menu.addAction("🍪 Export Session")
+            act_live_check = manage_menu.addAction("🔗 Check Live Listings")
+            act_live_check.triggered.connect(lambda checked, p=profile: self.launch_single_profile(p, "Custom URL", "https://www.facebook.com/marketplace/you/selling"))
+
+            manage_menu.addSeparator()
+
+            act_export_cookie = manage_menu.addAction("📤 Export Cookies (Fresh JSON)")
             act_export_cookie.triggered.connect(lambda checked, p=profile: self.export_single_cookie(p))
 
-            act_import_cookie = manage_menu.addAction("📂 Import Session")
+            act_import_cookie = manage_menu.addAction("📥 Update Cookies (Import JSON)")
             act_import_cookie.triggered.connect(lambda checked, p=profile: self.manage_single_cookie(p))
 
             act_proxy = manage_menu.addAction("🔄 Rotate Proxy")
@@ -697,18 +702,13 @@ class MainClientApp(QMainWindow):
 
             manage_menu.addSeparator()
 
-            act_live_check = manage_menu.addAction("🔗 Check Live Listings")
-            act_live_check.triggered.connect(lambda checked, p=profile: self.launch_single_profile(p, "Custom URL", "https://www.facebook.com/marketplace/you/selling"))
-
-            manage_menu.addSeparator()
-
-            act_stop = manage_menu.addAction("🛑 Stop Profile")
+            act_stop = manage_menu.addAction("🛑 Stop / Quit Browser")
             if profile['id'] in ACTIVE_DRIVERS:
                 act_stop.triggered.connect(lambda checked, pid=profile['id']: self.stop_single_profile(pid))
             else:
                 act_stop.setEnabled(False)
 
-            act_del = manage_menu.addAction("🗑️ Delete Permanently")
+            act_del = manage_menu.addAction("🗑️ Permanent Delete (Full Data Wipe)")
             act_del.triggered.connect(lambda checked, pid=profile['id']: self.delete_profile_handler(pid))
 
             manage_btn.setMenu(manage_menu)
@@ -842,9 +842,9 @@ class MainClientApp(QMainWindow):
                                     arcname = os.path.relpath(file_path, base_dir)
                                     zipf.write(file_path, arcname)
 
-                            # Inject isolated metadata.json into the profile's archive directory
+                            # Inject isolated profile_info.json into the profile's archive directory
                             meta_str = json.dumps(p, indent=4)
-                            zipf.writestr(f"profiles/id_{p['account_id']}/metadata.json", meta_str)
+                            zipf.writestr(f"profiles/id_{p['account_id']}/profile_info.json", meta_str)
 
             QMessageBox.information(self, "Export Complete", f"Successfully exported {exported_count} profiles to:\n{zip_path}")
         except Exception as e:
@@ -863,9 +863,9 @@ class MainClientApp(QMainWindow):
         imported_count = 0
         try:
             with zipfile.ZipFile(file_path, 'r') as zipf:
-                # Iterate through members to identify distinct profiles using metadata.json
+                # Iterate through members to identify distinct profiles using profile_info.json
                 for member in zipf.namelist():
-                    if member.endswith('metadata.json'):
+                    if member.endswith('profile_info.json'):
                         # Read the metadata
                         with zipf.open(member) as f:
                             meta_data = json.loads(f.read().decode('utf-8'))
@@ -895,7 +895,7 @@ class MainClientApp(QMainWindow):
                             old_prefix = f"profiles/id_{old_acc_id}/".replace('\\', '/')
                             for sub_member in zipf.namelist():
                                 sub_member_norm = sub_member.replace('\\', '/')
-                                if sub_member_norm.startswith(old_prefix) and not sub_member_norm.endswith('metadata.json'):
+                                if sub_member_norm.startswith(old_prefix) and not sub_member_norm.endswith('profile_info.json'):
                                     rel_path = sub_member_norm[len(old_prefix):]
                                     if rel_path:
                                         out_path = os.path.join(target_dir, os.path.normpath(rel_path))
@@ -1515,9 +1515,14 @@ class MainClientApp(QMainWindow):
         self.listing_desc.setPlaceholderText("Description with {Spintax|Variations} support...")
         self.listing_desc.setStyleSheet("background-color: #1E232B; color: white; border: 1px solid #2D3139; border-radius: 6px;")
 
+        self.listing_condition = QComboBox()
+        self.listing_condition.addItems(["New", "Used - Like New", "Used - Good", "Used - Fair"])
+        self.listing_condition.setStyleSheet("background-color: #1E232B; color: white; border: 1px solid #2D3139; border-radius: 6px; padding: 5px;")
+
         form_layout.addRow("Title:", self.listing_title)
         form_layout.addRow("Price:", self.listing_price)
         form_layout.addRow("Category:", self.listing_category)
+        form_layout.addRow("Condition:", self.listing_condition)
         form_layout.addRow("Location:", self.listing_location)
         form_layout.addRow("Tags:", self.listing_tags)
         form_layout.addRow("Description:", self.listing_desc)
@@ -1670,6 +1675,7 @@ class MainClientApp(QMainWindow):
             'title': title,
             'price': self.listing_price.text().strip() or "0",
             'category': self.listing_category.text().strip(),
+            'condition': self.listing_condition.currentText(),
             'location': self.listing_location.text().strip(),
             'tags': self.listing_tags.text().strip(),
             'description': desc,
@@ -1744,22 +1750,32 @@ class MainClientApp(QMainWindow):
             QMessageBox.information(self, "Group Updated", f"Moved profile to group: {new_group}")
 
     def export_single_cookie(self, profile_data):
-        base_dir = os.path.dirname(os.path.abspath(__file__))
-        cookie_path = os.path.join(base_dir, 'profiles', f"id_{profile_data['account_id']}", "cookies.json")
-
-        if not os.path.exists(cookie_path):
-            QMessageBox.warning(self, "Export Error", "No 'cookies.json' found for this profile. Launch it first to generate one.")
-            return
-
         options = QFileDialog.Option.DontUseNativeDialog
         save_path, _ = QFileDialog.getSaveFileName(self, "Save Session Cookie", f"{profile_data['profile_name']}_cookies.json", "JSON Files (*.json)", options=options)
 
-        if save_path:
+        if not save_path:
+            return
+
+        profile_id = profile_data['id']
+        # If the browser is currently running, fetch live cookies immediately
+        if profile_id in ACTIVE_DRIVERS:
             try:
-                shutil.copy(cookie_path, save_path)
-                QMessageBox.information(self, "Export Complete", "Successfully exported the session cookie.")
+                driver = ACTIVE_DRIVERS[profile_id]
+                cookies = driver.get_cookies()
+                with open(save_path, 'w', encoding='utf-8') as f:
+                    json.dump(cookies, f, indent=4)
+                QMessageBox.information(self, "Export Complete", "Successfully saved live session cookies.")
             except Exception as e:
-                QMessageBox.critical(self, "Export Error", f"Failed to export cookie:\n{e}")
+                QMessageBox.critical(self, "Export Error", f"Failed to extract live cookies:\n{e}")
+        else:
+            # If closed, dispatch the headless worker to extract and save
+            print(f"Extracting session in headless mode for {profile_data['profile_name']}...")
+            worker = CookieExportWorker(profile_data, save_path)
+            worker.signals.error.connect(self.on_browser_error)
+            worker.signals.status_update.connect(self.on_status_update)
+            # The worker runs in background and saves to save_path
+            self.threadpool.start(worker)
+            QMessageBox.information(self, "Export Processing", "Extracting cookies in the background. The file will appear shortly.")
 
     def manage_single_cookie(self, profile_data):
         options = QFileDialog.Option.DontUseNativeDialog

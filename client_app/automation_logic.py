@@ -28,6 +28,7 @@ FB_MARKET_SELLING_URL = "https://www.facebook.com/marketplace/you/selling"
 XPATH_FILE_INPUT = "//input[@type='file' and @accept='image/*,image/heif,image/heic']"
 XPATH_TITLE_INPUT = "//label[.//span[text()='Title']]//input"
 XPATH_PRICE_INPUT = "//label[.//span[text()='Price']]//input"
+XPATH_CONDITION_DROPDOWN = "//label[.//span[text()='Condition']]//div[@role='button']"
 XPATH_DESC_INPUT = "//label[.//span[text()='Description']]//textarea"
 XPATH_LOCATION_INPUT = "//label[.//span[text()='Location']]//input"
 XPATH_NEXT_BTN = "//div[@aria-label='Next' and @role='button']"
@@ -519,6 +520,24 @@ class MarketplaceTaskWorker(BaseBrowserWorker):
         except Exception as e:
             print(f"Error force_filling {xpath}: {e}")
 
+    def select_condition(self, driver, condition_text):
+        """Scrolls to the Condition dropdown, clicks it, and selects the matching option."""
+        wait = WebDriverWait(driver, 10)
+        try:
+            element = wait.until(EC.presence_of_element_located((By.XPATH, XPATH_CONDITION_DROPDOWN)))
+            driver.execute_script("arguments[0].scrollIntoView({block: 'center', behavior: 'smooth'});", element)
+            time.sleep(0.5)
+            element.click()
+            time.sleep(1.0) # Wait for the Facebook popup menu to render
+
+            # The dropdown options render in a listbox attached to the body, usually identifiable by text
+            option_xpath = f"//div[@role='option']//span[contains(text(), '{condition_text}')]"
+            option = wait.until(EC.element_to_be_clickable((By.XPATH, option_xpath)))
+            option.click()
+            time.sleep(0.5)
+        except Exception as e:
+            print(f"Error selecting condition '{condition_text}': {e}")
+
     @pyqtSlot()
     def run(self):
         driver = None
@@ -598,6 +617,7 @@ class MarketplaceTaskWorker(BaseBrowserWorker):
                 final_desc = self.process_spintax(listing_data['description'])
                 final_price = listing_data['price']
                 final_location = listing_data.get('location', '')
+                final_condition = listing_data.get('condition', '')
 
                 # Prepare Images
                 scrubbed_images = self.scrub_image_exif(listing_data['images'])
@@ -619,14 +639,18 @@ class MarketplaceTaskWorker(BaseBrowserWorker):
                 print(f"[{account_id}] Entering Price: {final_price}")
                 self.force_fill(driver, XPATH_PRICE_INPUT, final_price)
 
+                if final_condition:
+                    print(f"[{account_id}] Selecting Condition: {final_condition}")
+                    self.select_condition(driver, final_condition)
+
                 if final_location:
                     print(f"[{account_id}] Entering Location: {final_location}")
                     self.force_fill(driver, XPATH_LOCATION_INPUT, final_location)
-                    # Need to select the dropdown that appears
+                    # Wait for autocomplete, push ARROW_DOWN to grab the first suggestion and hit ENTER
                     time.sleep(2.0)
                     try:
                         actions = ActionChains(driver)
-                        actions.send_keys(Keys.ARROW_DOWN).send_keys(Keys.RETURN).perform()
+                        actions.send_keys(Keys.ARROW_DOWN).send_keys(Keys.ENTER).perform()
                         time.sleep(1.0)
                     except:
                         pass
@@ -675,6 +699,82 @@ class MarketplaceTaskWorker(BaseBrowserWorker):
         finally:
             if 'profile_id' in locals() and profile_id in ACTIVE_DRIVERS:
                 del ACTIVE_DRIVERS[profile_id]
+            if driver:
+                try:
+                    driver.quit()
+                except:
+                    pass
+            self.signals.finished.emit(self.profile['id'])
+
+
+class CookieExportWorker(BaseBrowserWorker):
+    """
+    QRunnable thread to launch Chrome headless, steal the session cookies, and save them to a user-defined location.
+    """
+    def __init__(self, profile_data, save_path):
+        super().__init__()
+        self.profile = profile_data
+        self.save_path = save_path
+        self.signals = WorkerSignals()
+
+    @pyqtSlot()
+    def run(self):
+        driver = None
+        try:
+            account_id = self.profile['account_id']
+            base_dir = os.path.dirname(os.path.abspath(__file__))
+            profile_dir = os.path.abspath(os.path.join(base_dir, 'profiles', f'id_{account_id}'))
+
+            options = uc.ChromeOptions()
+            options.add_argument("--disable-blink-features=AutomationControlled")
+            options.add_argument("--disable-features=IsolateOrigins,site-per-process")
+            options.add_argument("--force-device-scale-factor=1")
+            options.add_argument("--disable-renderer-backgrounding")
+            options.add_argument("--disable-popup-blocking")
+            options.add_argument("--profile-directory=Default")
+            # Make it headless for silent extraction
+            options.add_argument("--headless=new")
+
+            locale = self.profile.get('locale', 'en-US')
+            options.add_argument(f"--accept-lang={locale}")
+
+            user_agent = self.profile.get('custom_user_agent', '').strip()
+            if user_agent:
+                options.add_argument(f'--user-agent={user_agent}')
+
+            self.force_clean_locks(profile_dir)
+
+            try:
+                driver = uc.Chrome(
+                    options=options,
+                    no_first_run=True,
+                    user_data_dir=profile_dir,
+                    version_main=146
+                )
+            except Exception as uc_err:
+                print(f"[{account_id}] Warning: Failed to launch with version_main=146, trying default: {uc_err}")
+                driver = uc.Chrome(
+                    options=options,
+                    no_first_run=True,
+                    user_data_dir=profile_dir
+                )
+            driver.set_page_load_timeout(30)
+            self.inject_stealth_scripts(driver, self.profile)
+
+            self.signals.status_update.emit(self.profile['id'], "🔄 Extracting Session...")
+
+            driver.get("https://www.facebook.com")
+            time.sleep(3) # Wait for page and cookies to load
+
+            cookies = driver.get_cookies()
+            with open(self.save_path, 'w', encoding='utf-8') as f:
+                json.dump(cookies, f, indent=4)
+
+            print(f"[{account_id}] Successfully extracted fresh cookies to {self.save_path}")
+
+        except Exception as e:
+            self.signals.error.emit((str(e),))
+        finally:
             if driver:
                 try:
                     driver.quit()
