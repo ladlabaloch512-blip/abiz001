@@ -14,6 +14,7 @@ from PyQt6.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout,
                              QComboBox, QMenu, QInputDialog, QGraphicsOpacityEffect)
 import shutil
 import zipfile
+import json
 from PyQt6.QtCore import Qt, QThreadPool, pyqtSlot, QRunnable, QObject, pyqtSignal, QPropertyAnimation, QTimer
 from shared_logic.security import verify_license, get_hardware_uuid
 from shared_logic.config import BUY_LINK
@@ -374,15 +375,15 @@ class MainClientApp(QMainWindow):
 
         layout.addLayout(header_layout)
 
-        # Sleek Single-Row Toolbar Panel (Categorized Menus)
+        # The Elite 4-Menu Ribbon
         toolbar_panel = QFrame()
         toolbar_panel.setStyleSheet("background-color: #1E232B; border-radius: 8px; border: 1px solid #2D3139;")
         toolbar_layout = QHBoxLayout(toolbar_panel)
         toolbar_layout.setContentsMargins(10, 10, 10, 10)
         toolbar_layout.setSpacing(15)
 
-        # 1. Bulk Operations Menu
-        bulk_ops_btn = QPushButton("🚀 Bulk Operations ▾")
+        # 1. Bulk Actions Menu
+        bulk_ops_btn = QPushButton("🚀 Bulk Actions ▾")
         bulk_ops_btn.setProperty("class", "LaunchBtn")
         bulk_ops_menu = QMenu(bulk_ops_btn)
 
@@ -400,36 +401,36 @@ class MainClientApp(QMainWindow):
         act_login = bulk_ops_menu.addAction("🔑 Auto-Login Session")
         act_login.triggered.connect(self.check_selected_profiles_status)
 
-        act_stop = bulk_ops_menu.addAction("🛑 Stop Selected")
+        act_stop = bulk_ops_menu.addAction("🛑 Bulk Stop Selected")
         act_stop.triggered.connect(self.stop_selected_profiles)
 
         bulk_ops_btn.setMenu(bulk_ops_menu)
         toolbar_layout.addWidget(bulk_ops_btn)
 
-        # 2. Import / Export Menu
+        # 2. Import/Export Menu
         io_btn = QPushButton("📂 Import / Export ▾")
         io_btn.setProperty("class", "PrimaryAction")
         io_menu = QMenu(io_btn)
 
-        act_imp_txt = io_menu.addAction("📄 Import from TXT")
+        act_imp_txt = io_menu.addAction("📄 TXT Import")
         act_imp_txt.triggered.connect(self.import_profiles_from_txt)
 
-        act_imp_cook_fldr = io_menu.addAction("📁 Bulk Cookie Folder")
+        act_imp_cook_fldr = io_menu.addAction("📁 Folder Cookie Import")
         act_imp_cook_fldr.triggered.connect(self.import_via_cookies)
 
         io_menu.addSeparator()
 
-        act_export = io_menu.addAction("📤 Export Selected (ZIP)")
+        act_export = io_menu.addAction("📤 Backup Profiles (Export ZIP)")
         act_export.triggered.connect(self.execute_bulk_export)
 
-        act_import_backup = io_menu.addAction("📥 Import Backup (Restore)")
+        act_import_backup = io_menu.addAction("📥 Restore Backup (Import ZIP)")
         act_import_backup.triggered.connect(self.execute_import_backup)
 
         io_btn.setMenu(io_menu)
         toolbar_layout.addWidget(io_btn)
 
-        # 3. Management Menu
-        maint_btn = QPushButton("⚙️ Management ▾")
+        # 3. Settings & Wipe Menu
+        maint_btn = QPushButton("⚙️ Settings & Wipe ▾")
         maint_btn.setProperty("class", "SecondaryAction")
         maint_menu = QMenu(maint_btn)
 
@@ -441,11 +442,11 @@ class MainClientApp(QMainWindow):
 
         maint_menu.addSeparator()
 
-        act_upd_proxy = maint_menu.addAction("🔄 Bulk Proxy Update")
+        act_upd_proxy = maint_menu.addAction("🔄 Proxy Update")
         act_upd_proxy.triggered.connect(self.execute_bulk_proxy_update)
 
-        act_move_grp = maint_menu.addAction("📂 Change Group")
-        act_move_grp.triggered.connect(self.execute_bulk_group_update)
+        act_wipe_cache = maint_menu.addAction("🧹 Clear Cache")
+        act_wipe_cache.triggered.connect(self.execute_disk_cleanup)
 
         maint_menu.addSeparator()
 
@@ -455,16 +456,21 @@ class MainClientApp(QMainWindow):
         maint_btn.setMenu(maint_menu)
         toolbar_layout.addWidget(maint_btn)
 
-        # 4. Groups Menu
-        groups_btn = QPushButton("👥 Groups ▾")
+        # 4. Groups Control Menu
+        groups_btn = QPushButton("👥 Groups Control ▾")
         groups_btn.setProperty("class", "SecondaryAction")
         groups_menu = QMenu(groups_btn)
 
-        act_add_grp = groups_menu.addAction("➕ New Group")
+        act_add_grp = groups_menu.addAction("➕ Create Group")
         act_add_grp.triggered.connect(self.add_new_group)
 
-        act_del_grp = groups_menu.addAction("🗑️ Delete Current Group")
+        act_del_grp = groups_menu.addAction("🗑️ Delete Group")
         act_del_grp.triggered.connect(self.delete_selected_group)
+
+        groups_menu.addSeparator()
+
+        act_move_grp = groups_menu.addAction("📂 Move IDs to Group")
+        act_move_grp.triggered.connect(self.execute_bulk_group_update)
 
         groups_btn.setMenu(groups_menu)
         toolbar_layout.addWidget(groups_btn)
@@ -592,22 +598,23 @@ class MainClientApp(QMainWindow):
         self.update_stats_label()
 
         delay = 0
-        for profile in profiles:
+        for row_idx, profile in enumerate(profiles):
+            self.table.insertRow(row_idx)
+
             # Filtering Logic
+            is_hidden = False
             group_name = profile.get('group_name', 'Default') or 'Default'
             if current_group != "All Groups" and current_group != group_name:
-                continue
+                is_hidden = True
 
             search_query = self.search_input.text().strip().lower()
             if search_query:
                 name_match = search_query in profile.get('profile_name', '').lower()
                 status_match = search_query in profile.get('status_text', '').lower()
                 if not (name_match or status_match):
-                    continue
+                    is_hidden = True
 
-            # Insert at the next available visual row
-            row_idx = self.table.rowCount()
-            self.table.insertRow(row_idx)
+            self.table.setRowHidden(row_idx, is_hidden)
 
             # Checkbox
             chk_widget = QWidget()
@@ -676,8 +683,11 @@ class MainClientApp(QMainWindow):
 
             manage_menu.addSeparator()
 
-            act_cookie = manage_menu.addAction("🍪 Export/Update Cookies")
-            act_cookie.triggered.connect(lambda checked, p=profile: self.manage_single_cookie(p))
+            act_export_cookie = manage_menu.addAction("🍪 Export Session")
+            act_export_cookie.triggered.connect(lambda checked, p=profile: self.export_single_cookie(p))
+
+            act_import_cookie = manage_menu.addAction("📂 Import Session")
+            act_import_cookie.triggered.connect(lambda checked, p=profile: self.manage_single_cookie(p))
 
             act_proxy = manage_menu.addAction("🔄 Rotate Proxy")
             act_proxy.triggered.connect(lambda checked, pid=profile['id']: self.manage_single_proxy(pid))
@@ -876,14 +886,16 @@ class MainClientApp(QMainWindow):
                             os.makedirs(target_dir, exist_ok=True)
 
                             # Extract specific profile contents from ZIP, remapping paths
-                            old_prefix = f"profiles/id_{old_acc_id}/"
+                            # Normalise slashes to forward slashes to match zipfile format
+                            old_prefix = f"profiles/id_{old_acc_id}/".replace('\\', '/')
                             for sub_member in zipf.namelist():
-                                if sub_member.startswith(old_prefix) and not sub_member.endswith('metadata.json'):
-                                    rel_path = sub_member[len(old_prefix):]
+                                sub_member_norm = sub_member.replace('\\', '/')
+                                if sub_member_norm.startswith(old_prefix) and not sub_member_norm.endswith('metadata.json'):
+                                    rel_path = sub_member_norm[len(old_prefix):]
                                     if rel_path:
-                                        out_path = os.path.join(target_dir, rel_path)
+                                        out_path = os.path.join(target_dir, os.path.normpath(rel_path))
                                         os.makedirs(os.path.dirname(out_path), exist_ok=True)
-                                        if not sub_member.endswith('/'): # Not a directory marker
+                                        if not sub_member_norm.endswith('/'): # Not a directory marker
                                             with zipf.open(sub_member) as source, open(out_path, "wb") as target:
                                                 shutil.copyfileobj(source, target)
 
@@ -1045,11 +1057,13 @@ class MainClientApp(QMainWindow):
     def toggle_all_table_accounts(self, state):
         target_state = Qt.CheckState(state)
         for row in range(self.table.rowCount()):
-            chk_widget = self.table.cellWidget(row, 0)
-            if chk_widget:
-                checkbox = chk_widget.findChild(QCheckBox)
-                if checkbox:
-                    checkbox.setCheckState(target_state)
+            # Only toggle visible rows (filtered rows)
+            if not self.table.isRowHidden(row):
+                chk_widget = self.table.cellWidget(row, 0)
+                if chk_widget:
+                    checkbox = chk_widget.findChild(QCheckBox)
+                    if checkbox:
+                        checkbox.setCheckState(target_state)
 
     def import_profiles_from_txt(self):
         options = QFileDialog.Option.DontUseNativeDialog
@@ -1632,6 +1646,24 @@ class MainClientApp(QMainWindow):
             self.load_profiles_into_table()
             QMessageBox.information(self, "Group Updated", f"Moved profile to group: {new_group}")
 
+    def export_single_cookie(self, profile_data):
+        base_dir = os.path.dirname(os.path.abspath(__file__))
+        cookie_path = os.path.join(base_dir, 'profiles', f"id_{profile_data['account_id']}", "cookies.json")
+
+        if not os.path.exists(cookie_path):
+            QMessageBox.warning(self, "Export Error", "No 'cookies.json' found for this profile. Launch it first to generate one.")
+            return
+
+        options = QFileDialog.Option.DontUseNativeDialog
+        save_path, _ = QFileDialog.getSaveFileName(self, "Save Session Cookie", f"{profile_data['profile_name']}_cookies.json", "JSON Files (*.json)", options=options)
+
+        if save_path:
+            try:
+                shutil.copy(cookie_path, save_path)
+                QMessageBox.information(self, "Export Complete", "Successfully exported the session cookie.")
+            except Exception as e:
+                QMessageBox.critical(self, "Export Error", f"Failed to export cookie:\n{e}")
+
     def manage_single_cookie(self, profile_data):
         options = QFileDialog.Option.DontUseNativeDialog
         file_path, _ = QFileDialog.getOpenFileName(self, "Select Single JSON Cookie", "", "JSON Files (*.json)", options=options)
@@ -1643,11 +1675,10 @@ class MainClientApp(QMainWindow):
         target_dir = os.path.join(base_dir, 'profiles', f"id_{profile_data['account_id']}")
         os.makedirs(target_dir, exist_ok=True)
 
-        file_name = os.path.basename(file_path)
-        dst_path = os.path.join(target_dir, file_name)
+        dst_path = os.path.join(target_dir, 'cookies.json')
         try:
             shutil.copy(file_path, dst_path)
-            QMessageBox.information(self, "Cookie Imported", f"Successfully imported {file_name} to the selected profile.")
+            QMessageBox.information(self, "Cookie Imported", "Successfully injected the selected session into this profile.")
         except Exception as e:
             QMessageBox.critical(self, "Import Error", f"Failed to copy cookie:\n{e}")
 
