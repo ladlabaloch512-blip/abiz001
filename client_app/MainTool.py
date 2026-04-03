@@ -151,16 +151,18 @@ class MainClientApp(QMainWindow):
         self.locked_screen = QWidget()
         self.account_manager_screen = QWidget()
         self.bulk_listing_screen = QWidget()
-        self.placeholder_screen = QWidget() # For Lead Router, Settings, etc.
+        self.lead_router_screen = QWidget()
+        self.settings_screen = QWidget()
 
         self.stacked_widget.addWidget(self.locked_screen)
         self.stacked_widget.addWidget(self.account_manager_screen)
         self.stacked_widget.addWidget(self.bulk_listing_screen)
-        self.stacked_widget.addWidget(self.placeholder_screen)
+        self.stacked_widget.addWidget(self.lead_router_screen)
+        self.stacked_widget.addWidget(self.settings_screen)
 
-        # Build standard placeholder
-        ph_layout = QVBoxLayout(self.placeholder_screen)
-        ph_label = QLabel("Module under construction in later steps...")
+        # Build standard placeholder for Settings
+        ph_layout = QVBoxLayout(self.settings_screen)
+        ph_label = QLabel("Settings Module under construction in later steps...")
         ph_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         ph_label.setStyleSheet("font-size: 24px; color: #A0AABF;")
         ph_layout.addWidget(ph_label)
@@ -183,9 +185,9 @@ class MainClientApp(QMainWindow):
 
         nav_items = [
             ("👤 Account Manager", lambda: self.stacked_widget.setCurrentWidget(self.account_manager_screen)),
-            ("💬 Lead Router", lambda: self.stacked_widget.setCurrentWidget(self.placeholder_screen)),
+            ("💬 Lead Router", lambda: self.stacked_widget.setCurrentWidget(self.lead_router_screen)),
             ("📦 Bulk Listing Tool", lambda: self.stacked_widget.setCurrentWidget(self.bulk_listing_screen)),
-            ("⚙️ Settings", lambda: self.stacked_widget.setCurrentWidget(self.placeholder_screen))
+            ("⚙️ Settings", lambda: self.stacked_widget.setCurrentWidget(self.settings_screen))
         ]
 
         for text, callback in nav_items:
@@ -216,6 +218,7 @@ class MainClientApp(QMainWindow):
                 self.nav_buttons[0].setChecked(True)
             self.build_account_manager()
             self.build_bulk_listing()
+            self.build_lead_router()
             self.stacked_widget.setCurrentWidget(self.account_manager_screen)
         else:
             self.sidebar_widget.hide()
@@ -332,9 +335,9 @@ class MainClientApp(QMainWindow):
         bulk_layout.addWidget(cookie_file_btn)
 
         # Import Cookie Folder
-        cookie_folder_btn = QPushButton("📁 Import Cookie Folder")
+        cookie_folder_btn = QPushButton("📁 Import Cookies via Folder")
         cookie_folder_btn.setStyleSheet("background-color: #374151; color: white; padding: 8px; border-radius: 4px; font-weight: bold;")
-        cookie_folder_btn.clicked.connect(self.import_cookie_folder)
+        cookie_folder_btn.clicked.connect(self.import_via_cookies)
         bulk_layout.addWidget(cookie_folder_btn)
 
         bulk_layout.addStretch()
@@ -342,10 +345,10 @@ class MainClientApp(QMainWindow):
 
         # Table Controls: Search, Filter, Select All
         table_controls_layout = QHBoxLayout()
-        select_all_btn = QPushButton("✅ Select All")
-        select_all_btn.setStyleSheet("background-color: #4B5563; color: white; padding: 5px 10px; border-radius: 4px; font-weight: bold;")
-        select_all_btn.clicked.connect(self.toggle_all_table_accounts)
-        table_controls_layout.addWidget(select_all_btn)
+        self.select_all_checkbox = QCheckBox("Select All")
+        self.select_all_checkbox.setStyleSheet("color: white; padding: 5px 10px; font-weight: bold;")
+        self.select_all_checkbox.stateChanged.connect(self.toggle_all_table_accounts)
+        table_controls_layout.addWidget(self.select_all_checkbox)
 
         # Search Bar
         self.search_input = QLineEdit()
@@ -665,15 +668,8 @@ class MainClientApp(QMainWindow):
         else:
             self.custom_url_input.hide()
 
-    def toggle_all_table_accounts(self):
-        # Determine target state based on first item
-        target_state = Qt.CheckState.Checked
-        first_widget = self.table.cellWidget(0, 0)
-        if first_widget:
-            first_chk = first_widget.findChild(QCheckBox)
-            if first_chk and first_chk.isChecked():
-                target_state = Qt.CheckState.Unchecked
-
+    def toggle_all_table_accounts(self, state):
+        target_state = Qt.CheckState(state)
         for row in range(self.table.rowCount()):
             chk_widget = self.table.cellWidget(row, 0)
             if chk_widget:
@@ -798,7 +794,7 @@ class MainClientApp(QMainWindow):
             except Exception as e:
                 QMessageBox.critical(self, "Import Error", f"Failed to copy cookie:\n{e}")
 
-    def import_cookie_folder(self):
+    def import_via_cookies(self):
         options = QFileDialog.Option.ShowDirsOnly
         folder_path = QFileDialog.getExistingDirectory(self, "Select Folder containing JSON Cookies", "", options=options)
 
@@ -821,11 +817,11 @@ class MainClientApp(QMainWindow):
                         os.makedirs(target_dir, exist_ok=True)
 
                         src_path = os.path.join(folder_path, file_name)
-                        dst_path = os.path.join(target_dir, file_name)
+                        dst_path = os.path.join(target_dir, 'cookies.json')
                         try:
-                            shutil.move(src_path, dst_path)
+                            shutil.copy(src_path, dst_path)
                         except Exception as e:
-                            print(f"Warning: Failed to move cookie {file_name}: {e}")
+                            print(f"Warning: Failed to copy cookie {file_name}: {e}")
 
             self.load_profiles_into_table()
             self.populate_account_picker()
@@ -960,6 +956,72 @@ class MainClientApp(QMainWindow):
                             status_item.setForeground(Qt.GlobalColor.white)
                         self.table.setItem(row, 4, status_item)
                         break
+
+    def build_lead_router(self):
+        layout = QHBoxLayout(self.lead_router_screen)
+        layout.setContentsMargins(0, 0, 0, 0)
+
+        # Left side: Active Profiles/Chats List
+        left_panel = QFrame()
+        left_panel.setFixedWidth(250)
+        left_panel.setObjectName("Card")
+        left_layout = QVBoxLayout(left_panel)
+
+        title_label = QLabel("Active Inbox")
+        title_label.setObjectName("HeaderTitle")
+        left_layout.addWidget(title_label)
+
+        self.inbox_list = QListWidget()
+        self.inbox_list.setStyleSheet("background-color: #1E232B; color: white; border: none; border-radius: 6px;")
+        # Placeholder items
+        self.inbox_list.addItem("id1 - New Message!")
+        self.inbox_list.addItem("id2 - Active")
+        self.inbox_list.addItem("id5 - Pending")
+
+        left_layout.addWidget(self.inbox_list)
+
+        # Right side: Chat Area & Controls
+        right_panel = QFrame()
+        right_panel.setObjectName("Card")
+        right_layout = QVBoxLayout(right_panel)
+
+        # Header Controls
+        chat_header = QHBoxLayout()
+        chat_title = QLabel("Chat History")
+        chat_title.setStyleSheet("font-size: 18px; font-weight: bold; color: white;")
+        chat_header.addWidget(chat_title)
+
+        chat_header.addStretch()
+
+        self.auto_responder_toggle = QCheckBox("Enable Auto-Responder")
+        self.auto_responder_toggle.setStyleSheet("color: white; font-weight: bold;")
+        chat_header.addWidget(self.auto_responder_toggle)
+
+        right_layout.addLayout(chat_header)
+
+        # Chat History Window
+        self.chat_history = QTextEdit()
+        self.chat_history.setReadOnly(True)
+        self.chat_history.setStyleSheet("background-color: #1E232B; color: white; border: 1px solid #2D3139; border-radius: 6px;")
+        self.chat_history.setText("System: Waiting for active chat selection...\n\nUser Profile: id1\nLead: Is this still available?\nBot (Auto): Please contact our specialist at 555-0199 to book your service now!")
+        right_layout.addWidget(self.chat_history)
+
+        # Manual Reply Area
+        reply_layout = QHBoxLayout()
+        self.reply_input = QLineEdit()
+        self.reply_input.setPlaceholderText("Type a manual reply...")
+        self.reply_input.setStyleSheet("background-color: #1E232B; color: white; border: 1px solid #2D3139; border-radius: 6px; padding: 10px;")
+
+        send_btn = QPushButton("Send")
+        send_btn.setStyleSheet("background-color: #6366F1; color: white; padding: 10px 20px; border-radius: 6px; font-weight: bold;")
+
+        reply_layout.addWidget(self.reply_input)
+        reply_layout.addWidget(send_btn)
+
+        right_layout.addLayout(reply_layout)
+
+        layout.addWidget(left_panel)
+        layout.addWidget(right_panel, 1)
 
     def build_bulk_listing(self):
         layout = QHBoxLayout(self.bulk_listing_screen)

@@ -1,5 +1,7 @@
 import os
+import shutil
 import time
+import json
 import zipfile
 import threading
 import random
@@ -221,11 +223,21 @@ class BrowserLauncherWorker(BaseBrowserWorker):
                 options.add_argument(f'--user-agent={user_agent}')
 
             # 5. Launch Browser natively via system Chrome using UC Auto-Patcher
-            driver = uc.Chrome(
-                options=options,
-                no_first_run=True,
-                user_data_dir=profile_dir
-            )
+            try:
+                driver = uc.Chrome(
+                    options=options,
+                    no_first_run=True,
+                    user_data_dir=profile_dir,
+                    version_main=146
+                )
+            except Exception as uc_err:
+                print(f"[{account_id}] Warning: Failed to launch with version_main=146, trying default: {uc_err}")
+                driver = uc.Chrome(
+                    options=options,
+                    no_first_run=True,
+                    user_data_dir=profile_dir
+                )
+            driver.set_page_load_timeout(20)
 
             # 6. Inject Full Stealth Engine (Canvas, WebGL, CDP overrrides)
             self.inject_stealth_scripts(driver, self.profile)
@@ -255,7 +267,6 @@ class BrowserLauncherWorker(BaseBrowserWorker):
                 pass
 
             # Basic cookie injection logic if a json cookie file exists in profile_dir
-            import os, json
             cookie_file = os.path.join(profile_dir, 'cookies.json')
             if os.path.exists(cookie_file):
                 try:
@@ -433,11 +444,21 @@ class MarketplaceTaskWorker(BaseBrowserWorker):
                     if ext_path:
                         options.add_argument(f'--load-extension={ext_path}')
 
-            driver = uc.Chrome(
-                options=options,
-                no_first_run=True,
-                user_data_dir=profile_dir
-            )
+            try:
+                driver = uc.Chrome(
+                    options=options,
+                    no_first_run=True,
+                    user_data_dir=profile_dir,
+                    version_main=146
+                )
+            except Exception as uc_err:
+                print(f"[{account_id}] Warning: Failed to launch with version_main=146, trying default: {uc_err}")
+                driver = uc.Chrome(
+                    options=options,
+                    no_first_run=True,
+                    user_data_dir=profile_dir
+                )
+            driver.set_page_load_timeout(20)
             self.inject_stealth_scripts(driver, self.profile)
 
             print(f"[{account_id}] Navigating to FB Marketplace Create Item...")
@@ -558,11 +579,21 @@ class AccountMonitorWorker(BaseBrowserWorker):
                     if ext_path:
                         options.add_argument(f'--load-extension={ext_path}')
 
-            driver = uc.Chrome(
-                options=options,
-                no_first_run=True,
-                user_data_dir=profile_dir
-            )
+            try:
+                driver = uc.Chrome(
+                    options=options,
+                    no_first_run=True,
+                    user_data_dir=profile_dir,
+                    version_main=146
+                )
+            except Exception as uc_err:
+                print(f"[{account_id}] Warning: Failed to launch with version_main=146, trying default: {uc_err}")
+                driver = uc.Chrome(
+                    options=options,
+                    no_first_run=True,
+                    user_data_dir=profile_dir
+                )
+            driver.set_page_load_timeout(20)
             self.inject_stealth_scripts(driver, self.profile)
 
             driver.get("https://www.facebook.com")
