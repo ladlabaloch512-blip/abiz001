@@ -11,12 +11,14 @@ from PyQt6.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout,
                              QStackedWidget, QTableWidget, QTableWidgetItem, QHeaderView,
                              QDialog, QFormLayout, QMessageBox, QCheckBox,
                              QTextEdit, QFileDialog, QListWidget, QListWidgetItem,
-                             QComboBox, QMenu, QInputDialog)
+                             QComboBox, QMenu, QInputDialog, QGraphicsOpacityEffect)
 import shutil
-from PyQt6.QtCore import Qt, QThreadPool, pyqtSlot, QRunnable, QObject, pyqtSignal
+import zipfile
+from PyQt6.QtCore import Qt, QThreadPool, pyqtSlot, QRunnable, QObject, pyqtSignal, QPropertyAnimation, QTimer
 from shared_logic.security import verify_license, get_hardware_uuid
 from shared_logic.config import BUY_LINK
 import requests # For "What is my IP" check if needed or just redirect
+import psutil
 
 import requests # For proxy health check
 
@@ -199,7 +201,59 @@ class MainClientApp(QMainWindow):
             self.nav_buttons.append(btn)
 
         layout.addStretch()
+
+        # Hardware Monitor Widget
+        self.hw_monitor = QFrame()
+        self.hw_monitor.setStyleSheet("background-color: #1E232B; border-radius: 8px; border: 1px solid #2D3139; padding: 10px;")
+        hw_layout = QVBoxLayout(self.hw_monitor)
+
+        hw_title = QLabel("Hardware Monitor")
+        hw_title.setStyleSheet("font-weight: bold; color: #A0AABF;")
+        hw_layout.addWidget(hw_title)
+
+        self.hw_stats_label = QLabel("CPU: --%\nRAM: --/-- GB")
+        self.hw_stats_label.setStyleSheet("color: white; font-size: 12px;")
+        hw_layout.addWidget(self.hw_stats_label)
+
+        self.ai_rec_label = QLabel("Max Profiles: --")
+        self.ai_rec_label.setStyleSheet("color: #10B981; font-weight: bold; font-size: 12px; margin-top: 5px;")
+        hw_layout.addWidget(self.ai_rec_label)
+
+        layout.addWidget(self.hw_monitor)
+
+        # Update Timer for Hardware Monitor
+        self.hw_timer = QTimer(self)
+        self.hw_timer.timeout.connect(self.update_hardware_stats)
+        self.hw_timer.start(2000) # Update every 2 seconds
+        self.update_hardware_stats() # Initial call
+
         self.sidebar_widget.hide()
+
+    def update_hardware_stats(self):
+        try:
+            cpu_usage = psutil.cpu_percent(interval=None)
+            mem = psutil.virtual_memory()
+            total_ram_gb = mem.total / (1024 ** 3)
+            free_ram_gb = mem.available / (1024 ** 3)
+
+            # Estimate RAM used specifically by Chromium instances
+            chrome_ram_mb = 0
+            for proc in psutil.process_iter(['name', 'memory_info']):
+                try:
+                    # Looking for chrome.exe or chromedriver
+                    if proc.info['name'] and 'chrome' in proc.info['name'].lower():
+                        chrome_ram_mb += proc.info['memory_info'].rss / (1024 ** 2)
+                except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
+                    pass
+            chrome_ram_gb = chrome_ram_mb / 1024
+
+            # Simple calculation: 600MB (~0.6GB) per Chromium profile
+            max_profiles = int((mem.available / (1024 ** 2)) / 600)
+
+            self.hw_stats_label.setText(f"CPU: {cpu_usage}%\nApp Chrome RAM: {chrome_ram_gb:.1f} GB\nFree RAM: {free_ram_gb:.1f}/{total_ram_gb:.1f} GB")
+            self.ai_rec_label.setText(f"Max Profiles: {max_profiles}")
+        except Exception as e:
+            self.hw_stats_label.setText("Hardware data unavailable")
 
     def nav_button_clicked(self):
         sender = self.sender()
@@ -414,17 +468,21 @@ class MainClientApp(QMainWindow):
         move_group_btn.clicked.connect(self.execute_bulk_group_update)
         row2_layout.addWidget(move_group_btn)
 
+        export_btn = QPushButton("📤 Export Profiles")
+        export_btn.setProperty("class", "PrimaryAction")
+        export_btn.clicked.connect(self.execute_bulk_export)
+        row2_layout.addWidget(export_btn)
+
         toolbar_layout.addLayout(row2_layout)
         layout.addWidget(toolbar_panel)
 
         # Table
         self.table = QTableWidget()
-        self.table.setColumnCount(7)
-        self.table.setHorizontalHeaderLabels(["", "Profile Name", "Proxy", "Last Active", "Status", "Action", "Delete"])
+        self.table.setColumnCount(6)
+        self.table.setHorizontalHeaderLabels(["", "Profile Name", "Proxy", "Last Active", "Status", "⚙️ Manage"])
         self.table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
         self.table.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.ResizeToContents) # Checkbox col
-        self.table.horizontalHeader().setSectionResizeMode(5, QHeaderView.ResizeMode.ResizeToContents) # Launch col
-        self.table.horizontalHeader().setSectionResizeMode(6, QHeaderView.ResizeMode.ResizeToContents) # Delete col
+        self.table.horizontalHeader().setSectionResizeMode(5, QHeaderView.ResizeMode.ResizeToContents) # Manage col
 
         self.table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
         self.table.setAlternatingRowColors(True)
@@ -523,6 +581,7 @@ class MainClientApp(QMainWindow):
 
         self.update_stats_label()
 
+        delay = 0
         for profile in profiles:
             # Filtering Logic
             group_name = profile.get('group_name', 'Default') or 'Default'
@@ -572,6 +631,9 @@ class MainClientApp(QMainWindow):
             status_item = QTableWidgetItem(status_text)
             if 'Active' in status_text:
                 status_item.setForeground(Qt.GlobalColor.green)
+            elif 'Starting' in status_text or 'Initializing' in status_text:
+                status_item.setText("🔄 Initializing...")
+                status_item.setForeground(Qt.GlobalColor.cyan)
             elif 'Checkpoint' in status_text:
                 status_item.setForeground(Qt.GlobalColor.yellow)
             elif 'Invalid' in status_text or 'Error' in status_text:
@@ -581,24 +643,61 @@ class MainClientApp(QMainWindow):
 
             self.table.setItem(row_idx, 4, status_item)
 
-            # Launch Button / Running Guard
-            if profile['id'] in ACTIVE_DRIVERS:
-                launch_btn = QPushButton("🔴 Stop")
-                launch_btn.setStyleSheet("background-color: #EF4444; color: white; border-radius: 4px; padding: 5px; font-weight: bold;")
-                launch_btn.clicked.connect(lambda checked, pid=profile['id']: self.stop_single_profile(pid))
-            else:
-                launch_btn = QPushButton("🚀 Launch")
-                launch_btn.setProperty("class", "LaunchBtn")
-                launch_btn.setStyleSheet("background-color: #10B981; color: white; border-radius: 4px; padding: 5px; font-weight: bold;")
-                launch_btn.clicked.connect(lambda checked, p=profile: self.launch_single_profile(p, "Facebook Login & Home", ""))
-            self.table.setCellWidget(row_idx, 5, launch_btn)
+            # Manage Button Menu
+            manage_btn = QPushButton("⚙️ Manage")
+            manage_btn.setStyleSheet("background-color: #374151; color: white; border-radius: 6px; padding: 5px 10px; font-weight: bold;")
 
-            # Delete Button
-            del_btn = QPushButton("🗑️")
-            del_btn.setProperty("class", "DangerAction")
-            del_btn.setStyleSheet("background-color: #EF4444; color: white; border-radius: 4px; padding: 5px;")
-            del_btn.clicked.connect(lambda checked, pid=profile['id']: self.delete_profile_handler(pid))
-            self.table.setCellWidget(row_idx, 6, del_btn)
+            manage_menu = QMenu(manage_btn)
+            manage_menu.setStyleSheet("""
+                QMenu { background-color: #1E232B; color: white; border: 1px solid #2D3139; border-radius: 6px; }
+                QMenu::item { padding: 8px 20px; }
+                QMenu::item:selected { background-color: #374151; }
+            """)
+
+            # Logic binds
+            act_launch_fb = manage_menu.addAction("🚀 Launch Browser (FB Home)")
+            act_launch_fb.triggered.connect(lambda checked, p=profile: self.launch_single_profile(p, "Facebook Login & Home", ""))
+
+            act_launch_man = manage_menu.addAction("🕸️ Launch Manual (Blank Page)")
+            act_launch_man.triggered.connect(lambda checked, p=profile: self.launch_single_profile(p, "Manual (Blank Tab)", ""))
+
+            manage_menu.addSeparator()
+
+            act_cookie = manage_menu.addAction("🍪 Export/Update Cookies")
+            act_cookie.triggered.connect(lambda checked, p=profile: self.manage_single_cookie(p))
+
+            act_proxy = manage_menu.addAction("🔄 Rotate Proxy")
+            act_proxy.triggered.connect(lambda checked, pid=profile['id']: self.manage_single_proxy(pid))
+
+            act_group = manage_menu.addAction("📂 Change Group")
+            act_group.triggered.connect(lambda checked, pid=profile['id']: self.manage_single_group(pid))
+
+            manage_menu.addSeparator()
+
+            act_stop = manage_menu.addAction("🛑 Stop Profile")
+            if profile['id'] in ACTIVE_DRIVERS:
+                act_stop.triggered.connect(lambda checked, pid=profile['id']: self.stop_single_profile(pid))
+            else:
+                act_stop.setEnabled(False)
+
+            act_del = manage_menu.addAction("🗑️ Delete Permanently")
+            act_del.triggered.connect(lambda checked, pid=profile['id']: self.delete_profile_handler(pid))
+
+            manage_btn.setMenu(manage_menu)
+
+            # Simple fade-in animation wrapper for the row elements
+            opacity_effect = QGraphicsOpacityEffect(self.table)
+            manage_btn.setGraphicsEffect(opacity_effect)
+
+            anim = QPropertyAnimation(opacity_effect, b"opacity", self.table)
+            anim.setDuration(300)
+            anim.setStartValue(0)
+            anim.setEndValue(1)
+            # Use QTimer to stagger the fade in
+            QTimer.singleShot(delay, anim.start)
+            delay += 20 # 20ms stagger per row
+
+            self.table.setCellWidget(row_idx, 5, manage_btn)
 
 
     @pyqtSlot(int, bool)
@@ -665,6 +764,58 @@ class MainClientApp(QMainWindow):
             if updated > 0:
                 self.load_profiles_into_table()
                 QMessageBox.information(self, "Group Updated", f"Moved {updated} profiles to group: {new_group}")
+
+    def execute_bulk_export(self):
+        selected_ids = []
+        for row in range(self.table.rowCount()):
+            chk_widget = self.table.cellWidget(row, 0)
+            if chk_widget:
+                checkbox = chk_widget.findChild(QCheckBox)
+                if checkbox and checkbox.isChecked():
+                    selected_ids.append(checkbox.property("profile_id"))
+
+        if not selected_ids:
+            QMessageBox.warning(self, "Selection Error", "Please select at least one profile to export.")
+            return
+
+        options = QFileDialog.Option.ShowDirsOnly
+        export_dir = QFileDialog.getExistingDirectory(self, "Select Export Destination Folder", "", options=options)
+        if not export_dir:
+            return
+
+        profiles = get_all_profiles()
+        base_dir = os.path.dirname(os.path.abspath(__file__))
+        db_path = os.path.join(base_dir, 'sys_config.db')
+        profiles_base = os.path.join(base_dir, 'profiles')
+
+        from datetime import datetime
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        zip_filename = f"FB_Profiles_Export_{timestamp}.zip"
+        zip_path = os.path.join(export_dir, zip_filename)
+
+        exported_count = 0
+        try:
+            with zipfile.ZipFile(zip_path, 'w', zipfile.ZIP_DEFLATED) as zipf:
+                # 1. Include Database for Metadata Sync
+                if os.path.exists(db_path):
+                    zipf.write(db_path, 'sys_config.db')
+
+                # 2. Iterate and Compress Selected Profile Directories
+                for p in profiles:
+                    if p['id'] in selected_ids:
+                        target_folder = os.path.join(profiles_base, f"id_{p['account_id']}")
+                        if os.path.exists(target_folder):
+                            exported_count += 1
+                            for root, dirs, files in os.walk(target_folder):
+                                for file in files:
+                                    file_path = os.path.join(root, file)
+                                    # Add to zip relative to the 'profiles' directory
+                                    arcname = os.path.relpath(file_path, base_dir)
+                                    zipf.write(file_path, arcname)
+
+            QMessageBox.information(self, "Export Complete", f"Successfully exported {exported_count} profiles to:\n{zip_path}")
+        except Exception as e:
+            QMessageBox.critical(self, "Export Error", f"Failed to export profiles:\n{e}")
 
     def execute_bulk_proxy_update(self):
         new_proxy, ok = QInputDialog.getText(self, "Update Proxy", "Enter new Proxy (IP:PORT or IP:PORT:USER:PASS):")
@@ -830,46 +981,48 @@ class MainClientApp(QMainWindow):
         options = QFileDialog.Option.DontUseNativeDialog
         file_path, _ = QFileDialog.getOpenFileName(self, "Select Accounts Text File", "", "Text Files (*.txt)", options=options)
 
-        if file_path:
-            next_id = get_next_sequential_id()
-            profiles_to_insert = []
+        if not file_path:
+            return
 
-            base_dir = os.path.dirname(os.path.abspath(__file__))
-            profiles_base = os.path.join(base_dir, 'profiles')
+        next_id = get_next_sequential_id()
+        profiles_to_insert = []
 
-            try:
-                with open(file_path, 'r', encoding='utf-8') as f:
-                    for line in f:
-                        line = line.strip()
-                        if not line:
-                            continue
+        base_dir = os.path.dirname(os.path.abspath(__file__))
+        profiles_base = os.path.join(base_dir, 'profiles')
 
-                        parts = line.split('|')
-                        if len(parts) >= 2:
-                            email = parts[0]
-                            password = parts[1]
-                            proxy = parts[2] if len(parts) > 2 else ""
+        try:
+            with open(file_path, 'r', encoding='utf-8') as f:
+                for line in f:
+                    line = line.strip()
+                    if not line:
+                        continue
 
-                            # Sequential Naming
-                            profile_name = f"id{next_id}"
-                            next_id += 1
+                    parts = line.split('|')
+                    if len(parts) >= 2:
+                        email = parts[0]
+                        password = parts[1]
+                        proxy = parts[2] if len(parts) > 2 else ""
 
-                            acc_id = str(uuid.uuid4())[:8]
+                        # Sequential Naming
+                        profile_name = f"id{next_id}"
+                        next_id += 1
 
-                            # (profile_name, account_id, account_proxy, custom_user_agent, email, password)
-                            profiles_to_insert.append((profile_name, acc_id, proxy, "", email, password))
+                        acc_id = str(uuid.uuid4())[:8]
 
-                            # Create folder automatically on hard drive
-                            target_dir = os.path.join(profiles_base, f'id_{acc_id}')
-                            os.makedirs(target_dir, exist_ok=True)
+                        # (profile_name, account_id, account_proxy, custom_user_agent, email, password)
+                        profiles_to_insert.append((profile_name, acc_id, proxy, "", email, password))
 
-                imported = bulk_insert_profiles(profiles_to_insert)
+                        # Create folder automatically on hard drive
+                        target_dir = os.path.join(profiles_base, f'id_{acc_id}')
+                        os.makedirs(target_dir, exist_ok=True)
 
-                self.load_profiles_into_table()
-                self.populate_account_picker()
-                QMessageBox.information(self, "Import Complete", f"Successfully imported {imported} accounts.")
-            except Exception as e:
-                QMessageBox.critical(self, "Import Error", f"Failed to read file:\n{e}")
+            imported = bulk_insert_profiles(profiles_to_insert)
+
+            self.load_profiles_into_table()
+            self.populate_account_picker()
+            QMessageBox.information(self, "Import Complete", f"Successfully imported {imported} accounts.")
+        except Exception as e:
+            QMessageBox.critical(self, "Import Error", f"Failed to read file:\n{e}")
 
     def bulk_empty_create(self):
         count, ok = QInputDialog.getInt(self, "Bulk Create Empty Profiles", "Enter number of profiles to create:", 50, 1, 1000)
@@ -929,52 +1082,56 @@ class MainClientApp(QMainWindow):
         options = QFileDialog.Option.DontUseNativeDialog
         file_path, _ = QFileDialog.getOpenFileName(self, "Select Single JSON Cookie", "", "JSON Files (*.json)", options=options)
 
-        if file_path:
-            base_dir = os.path.dirname(os.path.abspath(__file__))
-            profiles_base = os.path.join(base_dir, 'profiles')
+        if not file_path:
+            return
 
-            file_name = os.path.basename(file_path)
-            target_dir = os.path.join(profiles_base, f'id_{selected_acc_id}')
-            os.makedirs(target_dir, exist_ok=True)
-            dst_path = os.path.join(target_dir, file_name)
-            try:
-                shutil.copy(file_path, dst_path)
-                QMessageBox.information(self, "Cookie Imported", f"Successfully imported {file_name} to the selected profile.")
-            except Exception as e:
-                QMessageBox.critical(self, "Import Error", f"Failed to copy cookie:\n{e}")
+        base_dir = os.path.dirname(os.path.abspath(__file__))
+        profiles_base = os.path.join(base_dir, 'profiles')
+
+        file_name = os.path.basename(file_path)
+        target_dir = os.path.join(profiles_base, f'id_{selected_acc_id}')
+        os.makedirs(target_dir, exist_ok=True)
+        dst_path = os.path.join(target_dir, file_name)
+        try:
+            shutil.copy(file_path, dst_path)
+            QMessageBox.information(self, "Cookie Imported", f"Successfully imported {file_name} to the selected profile.")
+        except Exception as e:
+            QMessageBox.critical(self, "Import Error", f"Failed to copy cookie:\n{e}")
 
     def import_via_cookies(self):
         options = QFileDialog.Option.ShowDirsOnly
         folder_path = QFileDialog.getExistingDirectory(self, "Select Folder containing JSON Cookies", "", options=options)
 
-        if folder_path:
-            imported = 0
-            next_id = get_next_sequential_id()
-            base_dir = os.path.dirname(os.path.abspath(__file__))
-            profiles_base = os.path.join(base_dir, 'profiles')
+        if not folder_path:
+            return
 
-            for file_name in os.listdir(folder_path):
-                if file_name.endswith('.json'):
-                    profile_name = f"id{next_id}"
-                    next_id += 1
-                    acc_id = str(uuid.uuid4())[:8]
+        imported = 0
+        next_id = get_next_sequential_id()
+        base_dir = os.path.dirname(os.path.abspath(__file__))
+        profiles_base = os.path.join(base_dir, 'profiles')
 
-                    success, _ = add_profile(profile_name, acc_id)
-                    if success:
-                        imported += 1
-                        target_dir = os.path.join(profiles_base, f'id_{acc_id}')
-                        os.makedirs(target_dir, exist_ok=True)
+        for file_name in os.listdir(folder_path):
+            if file_name.endswith('.json'):
+                profile_name = f"id{next_id}"
+                next_id += 1
+                acc_id = str(uuid.uuid4())[:8]
 
-                        src_path = os.path.join(folder_path, file_name)
-                        dst_path = os.path.join(target_dir, 'cookies.json')
-                        try:
-                            shutil.copy(src_path, dst_path)
-                        except Exception as e:
-                            print(f"Warning: Failed to copy cookie {file_name}: {e}")
+                success, _ = add_profile(profile_name, acc_id)
+                if success:
+                    imported += 1
+                    target_dir = os.path.join(profiles_base, f'id_{acc_id}')
+                    os.makedirs(target_dir, exist_ok=True)
 
-            self.load_profiles_into_table()
-            self.populate_account_picker()
-            QMessageBox.information(self, "Cookies Imported", f"Successfully generated {imported} profiles from folder.")
+                    src_path = os.path.join(folder_path, file_name)
+                    dst_path = os.path.join(target_dir, 'cookies.json')
+                    try:
+                        shutil.copy(src_path, dst_path)
+                    except Exception as e:
+                        print(f"Warning: Failed to copy cookie {file_name}: {e}")
+
+        self.load_profiles_into_table()
+        self.populate_account_picker()
+        QMessageBox.information(self, "Cookies Imported", f"Successfully generated {imported} profiles from folder.")
 
     def open_add_profile_dialog(self):
         dialog = AddProfileDialog(self)
@@ -1096,6 +1253,9 @@ class MainClientApp(QMainWindow):
                     status_item = QTableWidgetItem(new_status)
                     if 'Active' in new_status:
                         status_item.setForeground(Qt.GlobalColor.green)
+                    elif 'Starting' in new_status or 'Initializing' in new_status:
+                        status_item.setText("🔄 Initializing...")
+                        status_item.setForeground(Qt.GlobalColor.cyan)
                     elif 'Checkpoint' in new_status:
                         status_item.setForeground(Qt.GlobalColor.yellow)
                     elif 'Invalid' in new_status or 'Error' in new_status:
@@ -1352,6 +1512,42 @@ class MainClientApp(QMainWindow):
                 launched += 1
 
         QMessageBox.information(self, "Task Started", f"Successfully queued {launched} accounts for bulk listing.")
+
+    def manage_single_proxy(self, profile_id):
+        new_proxy, ok = QInputDialog.getText(self, "Update Proxy", "Enter new Proxy (IP:PORT or IP:PORT:USER:PASS):")
+        if ok:
+            update_profile_proxy(profile_id, new_proxy.strip())
+            self.load_profiles_into_table()
+            QMessageBox.information(self, "Proxy Updated", "Proxy updated successfully.")
+
+    def manage_single_group(self, profile_id):
+        groups = get_all_groups()
+        group_names = ["Default"] + [g['group_name'] for g in groups if g['group_name'] != "Default"]
+
+        new_group, ok = QInputDialog.getItem(self, "Move to Group", "Select target group:", group_names, 0, False)
+        if ok and new_group:
+            update_profile_group(profile_id, new_group)
+            self.load_profiles_into_table()
+            QMessageBox.information(self, "Group Updated", f"Moved profile to group: {new_group}")
+
+    def manage_single_cookie(self, profile_data):
+        options = QFileDialog.Option.DontUseNativeDialog
+        file_path, _ = QFileDialog.getOpenFileName(self, "Select Single JSON Cookie", "", "JSON Files (*.json)", options=options)
+
+        if not file_path:
+            return
+
+        base_dir = os.path.dirname(os.path.abspath(__file__))
+        target_dir = os.path.join(base_dir, 'profiles', f"id_{profile_data['account_id']}")
+        os.makedirs(target_dir, exist_ok=True)
+
+        file_name = os.path.basename(file_path)
+        dst_path = os.path.join(target_dir, file_name)
+        try:
+            shutil.copy(file_path, dst_path)
+            QMessageBox.information(self, "Cookie Imported", f"Successfully imported {file_name} to the selected profile.")
+        except Exception as e:
+            QMessageBox.critical(self, "Import Error", f"Failed to copy cookie:\n{e}")
 
     def on_browser_error(self, err_tuple):
         err = err_tuple[0]

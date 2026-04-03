@@ -274,8 +274,8 @@ class BrowserLauncherWorker(BaseBrowserWorker):
             # Register Active Driver globally
             ACTIVE_DRIVERS[profile_id] = driver
 
-            self.signals.status_update.emit(profile_id, "🌐 Starting")
-            update_profile_status(profile_id, "🌐 Starting")
+            self.signals.status_update.emit(profile_id, "🔄 Initializing...")
+            update_profile_status(profile_id, "🔄 Initializing...")
 
             # Navigate based on Task Type
             if self.task_type == "Facebook Login & Home":
