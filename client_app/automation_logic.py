@@ -62,6 +62,28 @@ class BaseBrowserWorker(QRunnable):
     def __init__(self):
         super().__init__()
 
+    def clean_profile_locks(self, profile_dir):
+        """Removes Chromium lock files to prevent 'Target window already closed' and profile-in-use errors."""
+        locks = [
+            'SingletonLock',
+            'SingletonCookie',
+            'SingletonSocket',
+            'Local State'
+        ]
+        # Check root and Default folder
+        dirs_to_check = [profile_dir, os.path.join(profile_dir, "Default")]
+        for d in dirs_to_check:
+            for lock in locks:
+                lock_path = os.path.join(d, lock)
+                if os.path.exists(lock_path):
+                    try:
+                        if os.path.isfile(lock_path) or os.path.islink(lock_path):
+                            os.remove(lock_path)
+                        elif os.path.isdir(lock_path):
+                            shutil.rmtree(lock_path)
+                    except Exception as e:
+                        print(f"Warning: Could not remove lock file {lock_path}: {e}")
+
     def inject_stealth_scripts(self, driver, profile):
         """
         Injects a minimalist stealth payload using CDP.
@@ -252,6 +274,8 @@ class BrowserLauncherWorker(BaseBrowserWorker):
                 options.add_argument(f'--user-agent={user_agent}')
 
             # 5. Launch Browser natively via system Chrome using UC Auto-Patcher
+            self.clean_profile_locks(profile_dir)
+
             try:
                 driver = uc.Chrome(
                     options=options,
@@ -266,7 +290,7 @@ class BrowserLauncherWorker(BaseBrowserWorker):
                     no_first_run=True,
                     user_data_dir=profile_dir
                 )
-            driver.set_page_load_timeout(20)
+            driver.set_page_load_timeout(30)
 
             # 6. Inject Full Stealth Engine (Canvas, WebGL, CDP overrrides)
             self.inject_stealth_scripts(driver, self.profile)
@@ -347,20 +371,23 @@ class BrowserLauncherWorker(BaseBrowserWorker):
             last_status = None
             while True:
                 try:
-                    _ = driver.window_handles
+                    if driver.window_handles:
+                        driver.switch_to.window(driver.window_handles[0])
                     current_url = driver.current_url.lower()
 
                     new_status = "🌐 Running"
                     if self.task_type == "Facebook Login & Home":
                         if 'checkpoint' in current_url:
                             new_status = "⚠️ Checkpoint"
+                        elif any(x in current_url for x in ['/home', '/feed', '?sk=h_chr']):
+                            new_status = "✅ Active (Logged In)"
                         elif 'login' in current_url:
                             new_status = "⏳ Waiting for Login"
                         else:
                             # Intelligent Check: Verify actual DOM elements to confirm session
                             try:
                                 # Look for the main Facebook home layout role or navigation
-                                if driver.find_elements(By.CSS_SELECTOR, "div[role='navigation'], div[aria-label='Facebook']"):
+                                if driver.find_elements(By.CSS_SELECTOR, "div[role='navigation'], input[aria-label='Search Facebook'], svg[aria-label='Home']"):
                                     new_status = "✅ Active (Logged In)"
                             except:
                                 pass
@@ -483,6 +510,8 @@ class MarketplaceTaskWorker(BaseBrowserWorker):
                     if ext_path:
                         options.add_argument(f'--load-extension={ext_path}')
 
+            self.clean_profile_locks(profile_dir)
+
             try:
                 driver = uc.Chrome(
                     options=options,
@@ -497,7 +526,7 @@ class MarketplaceTaskWorker(BaseBrowserWorker):
                     no_first_run=True,
                     user_data_dir=profile_dir
                 )
-            driver.set_page_load_timeout(20)
+            driver.set_page_load_timeout(30)
             self.inject_stealth_scripts(driver, self.profile)
 
             print(f"[{account_id}] Navigating to FB Marketplace Create Item...")
@@ -560,7 +589,8 @@ class MarketplaceTaskWorker(BaseBrowserWorker):
             # Keep alive for review (or close immediately in real bulk runs)
             while True:
                 try:
-                    _ = driver.window_handles
+                    if driver.window_handles:
+                        driver.switch_to.window(driver.window_handles[0])
                     time.sleep(1)
                 except Exception:
                     break
@@ -618,6 +648,8 @@ class AccountMonitorWorker(BaseBrowserWorker):
                     if ext_path:
                         options.add_argument(f'--load-extension={ext_path}')
 
+            self.clean_profile_locks(profile_dir)
+
             try:
                 driver = uc.Chrome(
                     options=options,
@@ -632,7 +664,7 @@ class AccountMonitorWorker(BaseBrowserWorker):
                     no_first_run=True,
                     user_data_dir=profile_dir
                 )
-            driver.set_page_load_timeout(20)
+            driver.set_page_load_timeout(30)
             self.inject_stealth_scripts(driver, self.profile)
 
             driver.get("https://www.facebook.com")
@@ -707,11 +739,19 @@ class AccountMonitorWorker(BaseBrowserWorker):
                 status_text = '❌ Invalid'
             elif 'save-device' in current_url or 'save info' in page_source or 'login approval' in page_source or 'two-factor' in page_source:
                 status_text = '⚠️ Needs Approval / Save Info'
-            elif 'feed' in current_url or 'home' in current_url or 'facebook.com/?sk=' in current_url or 'facebook.com' == current_url.strip('/'):
-                # Assuming success if redirected to home/feed or stays on index without login form
+            elif any(x in current_url for x in ['/home', '/feed', '?sk=h_chr', 'facebook.com/?sk=']):
+                status_text = '✅ Active'
+            elif current_url.strip('/') == 'https://www.facebook.com' and 'login' not in page_source:
                 status_text = '✅ Active'
             else:
-                status_text = 'Unknown State'
+                # Intelligent DOM Check fallback
+                try:
+                    if driver.find_elements(By.CSS_SELECTOR, "div[role='navigation'], input[aria-label='Search Facebook'], svg[aria-label='Home']"):
+                        status_text = '✅ Active'
+                    else:
+                        status_text = 'Unknown State'
+                except:
+                    status_text = 'Unknown State'
 
             print(f"[{account_id}] Final status determined: {status_text}")
             update_profile_status(self.profile['id'], status_text)
