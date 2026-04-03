@@ -73,13 +73,10 @@ class BaseBrowserWorker(QRunnable):
     def __init__(self):
         super().__init__()
 
-    def clean_profile_locks(self, profile_dir):
+    def force_clean_locks(self, profile_dir):
         """Removes Chromium lock files to prevent 'Target window already closed' and profile-in-use errors."""
         locks = [
             'SingletonLock',
-            'SingletonCookie',
-            'SingletonSocket',
-            'Local State',
             'lock',
             'Parent.lock'
         ]
@@ -261,6 +258,7 @@ class BrowserLauncherWorker(BaseBrowserWorker):
             options.add_argument("--force-device-scale-factor=1")
             options.add_argument("--disable-renderer-backgrounding")
             options.add_argument("--disable-popup-blocking")
+            options.add_argument("--profile-directory=Default")
 
             # Explicitly set accept-languages to match proxy footprint
             locale = self.profile.get('locale', 'en-US')
@@ -286,7 +284,7 @@ class BrowserLauncherWorker(BaseBrowserWorker):
                 options.add_argument(f'--user-agent={user_agent}')
 
             # 5. Launch Browser natively via system Chrome using UC Auto-Patcher
-            self.clean_profile_locks(profile_dir)
+            self.force_clean_locks(profile_dir)
 
             try:
                 driver = uc.Chrome(
@@ -326,15 +324,15 @@ class BrowserLauncherWorker(BaseBrowserWorker):
                 driver.refresh()
             elif self.task_type == "Custom URL":
                 if not self.custom_url:
-                    print(f"[{account_id}] Warning: No Custom URL provided. Defaulting to about:blank.")
-                    driver.get("about:blank")
+                    print(f"[{account_id}] Warning: No Custom URL provided. Defaulting to chrome://newtab/")
+                    driver.get("chrome://newtab/")
                 else:
                     if not self.custom_url.startswith("http"):
                         self.custom_url = "https://" + self.custom_url
                     driver.get(self.custom_url)
             else:
-                # Manual (Blank Tab) - do nothing special
-                driver.get("about:blank")
+                # Manual (Blank Tab) - Navigate cleanly to New Tab
+                driver.get("chrome://newtab/")
 
             # Basic cookie injection logic if a json cookie file exists in profile_dir
             cookie_file = os.path.join(profile_dir, 'cookies.json')
@@ -539,6 +537,7 @@ class MarketplaceTaskWorker(BaseBrowserWorker):
             options.add_argument("--force-device-scale-factor=1")
             options.add_argument("--disable-renderer-backgrounding")
             options.add_argument("--disable-popup-blocking")
+            options.add_argument("--profile-directory=Default")
 
             # Explicitly set accept-languages to match proxy footprint
             locale = self.profile.get('locale', 'en-US')
@@ -559,7 +558,7 @@ class MarketplaceTaskWorker(BaseBrowserWorker):
                     if ext_path:
                         options.add_argument(f'--load-extension={ext_path}')
 
-            self.clean_profile_locks(profile_dir)
+            self.force_clean_locks(profile_dir)
 
             try:
                 driver = uc.Chrome(
@@ -697,6 +696,7 @@ class AccountMonitorWorker(BaseBrowserWorker):
     def run(self):
         driver = None
         try:
+            profile_id = self.profile['id']
             account_id = self.profile['account_id']
             email = self.profile.get('email', '').strip()
             password = self.profile.get('password', '').strip()
@@ -710,7 +710,7 @@ class AccountMonitorWorker(BaseBrowserWorker):
             options.add_argument("--force-device-scale-factor=1")
             options.add_argument("--disable-renderer-backgrounding")
             options.add_argument("--disable-popup-blocking")
-            options.add_argument("--disable-popup-blocking")
+            options.add_argument("--profile-directory=Default")
 
             # Explicitly set accept-languages to match proxy footprint
             locale = self.profile.get('locale', 'en-US')
@@ -730,7 +730,7 @@ class AccountMonitorWorker(BaseBrowserWorker):
                     if ext_path:
                         options.add_argument(f'--load-extension={ext_path}')
 
-            self.clean_profile_locks(profile_dir)
+            self.force_clean_locks(profile_dir)
 
             try:
                 driver = uc.Chrome(
@@ -748,6 +748,8 @@ class AccountMonitorWorker(BaseBrowserWorker):
                 )
             driver.set_page_load_timeout(30)
             self.inject_stealth_scripts(driver, self.profile)
+
+            ACTIVE_DRIVERS[profile_id] = driver
 
             driver.get("https://www.facebook.com")
             # Clear specific anti-bot tracking cookies before attempting login/status check
