@@ -127,6 +127,32 @@ QPushButton:hover {
     background-color: #374151;
 }
 
+/* Dropdown Menus */
+QMenu {
+    background-color: #1E232B;
+    color: #E2E8F0;
+    border: 1px solid #2D3139;
+    border-radius: 8px;
+    padding: 5px;
+}
+
+QMenu::item {
+    padding: 8px 25px;
+    border-radius: 4px;
+    font-weight: 500;
+}
+
+QMenu::item:selected {
+    background-color: #374151;
+    color: #FFFFFF;
+}
+
+QMenu::separator {
+    height: 1px;
+    background-color: #2D3139;
+    margin: 5px 10px;
+}
+
 /* Additional Rules for Tables and Dialogs in styles.qss */
 
 /* Table View Styling */
@@ -196,7 +222,7 @@ QPushButton.LaunchBtn {
     background-color: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #10B981, stop:1 #059669);
     color: #FFFFFF;
     border: none;
-    border-radius: 12px;
+    border-radius: 8px;
     padding: 8px 15px;
     font-weight: bold;
 }
@@ -204,11 +230,15 @@ QPushButton.LaunchBtn:hover {
     background-color: #047857;
 }
 
+QPushButton.LaunchBtn::menu-indicator {
+    image: none;
+}
+
 QPushButton.PrimaryAction {
     background-color: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #6366F1, stop:1 #4F46E5);
     color: #FFFFFF;
     border: none;
-    border-radius: 12px;
+    border-radius: 8px;
     padding: 8px 15px;
     font-weight: bold;
 }
@@ -216,14 +246,22 @@ QPushButton.PrimaryAction:hover {
     background-color: #4338CA;
 }
 
+QPushButton.PrimaryAction::menu-indicator {
+    image: none;
+}
+
 QPushButton.SecondaryAction {
     background-color: #374151;
     color: #FFFFFF;
     border: 1px solid #4B5563;
-    border-radius: 12px;
+    border-radius: 8px;
     padding: 8px 15px;
     font-weight: bold;
 }
 QPushButton.SecondaryAction:hover {
     background-color: #4B5563;
+}
+
+QPushButton.SecondaryAction::menu-indicator {
+    image: none;
 }

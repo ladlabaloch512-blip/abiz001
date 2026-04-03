@@ -250,8 +250,10 @@ class MainClientApp(QMainWindow):
             # Simple calculation: 600MB (~0.6GB) per Chromium profile
             max_profiles = int((mem.available / (1024 ** 2)) / 600)
 
-            self.hw_stats_label.setText(f"CPU: {cpu_usage}%\nApp Chrome RAM: {chrome_ram_gb:.1f} GB\nFree RAM: {free_ram_gb:.1f}/{total_ram_gb:.1f} GB")
-            self.ai_rec_label.setText(f"Max Profiles: {max_profiles}")
+            self.hw_stats_label.setText(f"CPU Load: {cpu_usage}%\nChrome Mem: {chrome_ram_gb:.1f} GB\nFree Mem: {free_ram_gb:.1f}/{total_ram_gb:.1f} GB")
+
+            active_count = len(ACTIVE_DRIVERS)
+            self.ai_rec_label.setText(f"Active Browsers: {active_count}\nMax Recommended: {max_profiles}")
         except Exception as e:
             self.hw_stats_label.setText("Hardware data unavailable")
 
@@ -363,117 +365,120 @@ class MainClientApp(QMainWindow):
         layout = QVBoxLayout(right_panel)
         layout.setContentsMargins(0, 0, 0, 0)
 
-        # Header Goal Setup
+        # Header
         header_layout = QHBoxLayout()
         title_label = QLabel("Account Manager")
         title_label.setObjectName("HeaderTitle")
         header_layout.addWidget(title_label)
         header_layout.addStretch()
 
-        self.task_selector = QComboBox()
-        self.task_selector.addItems(["Facebook Login & Home", "Custom URL", "Manual (Blank Tab)"])
-        self.task_selector.currentTextChanged.connect(self.on_task_type_changed)
-        header_layout.addWidget(QLabel("Goal:"))
-        header_layout.addWidget(self.task_selector)
-
-        self.custom_url_input = QLineEdit()
-        self.custom_url_input.setPlaceholderText("https://...")
-        self.custom_url_input.hide() # Hidden by default
-        header_layout.addWidget(self.custom_url_input)
-
-        status_btn = QPushButton("🔄 Auto-Login Status Check")
-        status_btn.setProperty("class", "SecondaryAction")
-        status_btn.clicked.connect(self.check_selected_profiles_status)
-        header_layout.addWidget(status_btn)
-
         layout.addLayout(header_layout)
 
-        # Dual-Row Toolbar Panel
+        # Sleek Single-Row Toolbar Panel (Categorized Menus)
         toolbar_panel = QFrame()
         toolbar_panel.setStyleSheet("background-color: #1E232B; border-radius: 8px; border: 1px solid #2D3139;")
-        toolbar_layout = QVBoxLayout(toolbar_panel)
+        toolbar_layout = QHBoxLayout(toolbar_panel)
         toolbar_layout.setContentsMargins(10, 10, 10, 10)
-        toolbar_layout.setSpacing(10)
+        toolbar_layout.setSpacing(15)
 
-        # --- ROW 1: Launch, Stop, Delete, Select All, Search ---
-        row1_layout = QHBoxLayout()
+        # 1. Quick Launch Menu
+        launch_btn = QPushButton("🚀 Quick Launch ▾")
+        launch_btn.setProperty("class", "LaunchBtn")
+        launch_menu = QMenu(launch_btn)
 
-        bulk_launch_btn = QPushButton("🚀 Bulk Launch")
-        bulk_launch_btn.setProperty("class", "LaunchBtn")
-        bulk_launch_btn.clicked.connect(self.launch_selected_profiles)
-        row1_layout.addWidget(bulk_launch_btn)
+        act_launch_fb = launch_menu.addAction("🚀 FB Home")
+        act_launch_fb.triggered.connect(lambda: self.launch_selected_profiles("Facebook Login & Home"))
 
-        bulk_stop_btn = QPushButton("🛑 Bulk Stop")
-        bulk_stop_btn.setProperty("class", "DangerAction")
-        bulk_stop_btn.clicked.connect(self.stop_selected_profiles)
-        row1_layout.addWidget(bulk_stop_btn)
+        act_launch_man = launch_menu.addAction("🕸️ Manual (Blank Tab)")
+        act_launch_man.triggered.connect(lambda: self.launch_selected_profiles("Manual (Blank Tab)"))
 
-        bulk_delete_btn = QPushButton("🗑️ Bulk Delete")
-        bulk_delete_btn.setProperty("class", "DangerAction")
-        bulk_delete_btn.clicked.connect(self.execute_bulk_delete)
-        row1_layout.addWidget(bulk_delete_btn)
+        act_launch_custom = launch_menu.addAction("🔗 Custom URL")
+        act_launch_custom.triggered.connect(lambda: self.launch_selected_profiles("Custom URL"))
 
-        row1_layout.addStretch()
+        launch_menu.addSeparator()
+
+        act_status = launch_menu.addAction("🔄 Run Background Status Check")
+        act_status.triggered.connect(self.check_selected_profiles_status)
+
+        launch_btn.setMenu(launch_menu)
+        toolbar_layout.addWidget(launch_btn)
+
+        # 2. Manage Accounts Menu
+        manage_btn = QPushButton("📁 Manage Accounts ▾")
+        manage_btn.setProperty("class", "PrimaryAction")
+        manage_menu = QMenu(manage_btn)
+
+        act_add_prof = manage_menu.addAction("➕ Add Single Profile")
+        act_add_prof.triggered.connect(self.open_add_profile_dialog)
+
+        act_bulk_create = manage_menu.addAction("🔢 Bulk Empty Create")
+        act_bulk_create.triggered.connect(self.bulk_empty_create)
+
+        manage_menu.addSeparator()
+
+        act_stop = manage_menu.addAction("🛑 Stop Selected Browsers")
+        act_stop.triggered.connect(self.stop_selected_profiles)
+
+        act_del = manage_menu.addAction("🗑️ Delete Selected Permanently")
+        act_del.triggered.connect(self.execute_bulk_delete)
+
+        manage_btn.setMenu(manage_menu)
+        toolbar_layout.addWidget(manage_btn)
+
+        # 3. Data & Import Menu
+        data_btn = QPushButton("🍪 Data & Import ▾")
+        data_btn.setProperty("class", "SecondaryAction")
+        data_menu = QMenu(data_btn)
+
+        act_imp_txt = data_menu.addAction("📂 Import from TXT")
+        act_imp_txt.triggered.connect(self.import_profiles_from_txt)
+
+        data_menu.addSeparator()
+
+        act_imp_cook_fldr = data_menu.addAction("📁 Bulk Cookie Folder")
+        act_imp_cook_fldr.triggered.connect(self.import_via_cookies)
+
+        act_imp_cook_file = data_menu.addAction("🍪 Import Single Cookie File")
+        act_imp_cook_file.triggered.connect(self.import_cookie_file)
+
+        data_btn.setMenu(data_menu)
+        toolbar_layout.addWidget(data_btn)
+
+        # 4. Maintenance Menu
+        maint_btn = QPushButton("⚙️ Maintenance ▾")
+        maint_btn.setProperty("class", "SecondaryAction")
+        maint_menu = QMenu(maint_btn)
+
+        act_upd_proxy = maint_menu.addAction("🔄 Update Proxies")
+        act_upd_proxy.triggered.connect(self.execute_bulk_proxy_update)
+
+        act_move_grp = maint_menu.addAction("📂 Move to Group")
+        act_move_grp.triggered.connect(self.execute_bulk_group_update)
+
+        maint_menu.addSeparator()
+
+        act_export = maint_menu.addAction("📤 Bulk Export Profiles")
+        act_export.triggered.connect(self.execute_bulk_export)
+
+        act_wipe_cache = maint_menu.addAction("🧹 Clear Temp Cache Data")
+        act_wipe_cache.triggered.connect(self.execute_disk_cleanup)
+
+        maint_btn.setMenu(maint_menu)
+        toolbar_layout.addWidget(maint_btn)
+
+        toolbar_layout.addStretch()
 
         self.select_all_checkbox = QCheckBox("Select All")
         self.select_all_checkbox.setStyleSheet("color: white; padding: 5px 10px; font-weight: bold;")
         self.select_all_checkbox.stateChanged.connect(self.toggle_all_table_accounts)
-        row1_layout.addWidget(self.select_all_checkbox)
+        toolbar_layout.addWidget(self.select_all_checkbox)
 
         self.search_input = QLineEdit()
-        self.search_input.setPlaceholderText("🔍 Search Name or Status...")
+        self.search_input.setPlaceholderText("🔍 Search Profiles...")
         self.search_input.setFixedWidth(200)
         self.search_input.textChanged.connect(self.filter_table)
-        row1_layout.addWidget(self.search_input)
+        toolbar_layout.addWidget(self.search_input)
 
-        toolbar_layout.addLayout(row1_layout)
-
-        # --- ROW 2: Add, Bulk Create, Cookies, Text Import, Proxies, Groups ---
-        row2_layout = QHBoxLayout()
-
-        add_btn = QPushButton("➕ Add Profile")
-        add_btn.setProperty("class", "PrimaryAction")
-        add_btn.clicked.connect(self.open_add_profile_dialog)
-        row2_layout.addWidget(add_btn)
-
-        bulk_create_btn = QPushButton("🔢 Bulk Create")
-        bulk_create_btn.setProperty("class", "SecondaryAction")
-        bulk_create_btn.clicked.connect(self.bulk_empty_create)
-        row2_layout.addWidget(bulk_create_btn)
-
-        cookie_folder_btn = QPushButton("📁 Cookie Folder")
-        cookie_folder_btn.setProperty("class", "SecondaryAction")
-        cookie_folder_btn.clicked.connect(self.import_via_cookies)
-        row2_layout.addWidget(cookie_folder_btn)
-
-        cookie_file_btn = QPushButton("🍪 Cookie File")
-        cookie_file_btn.setProperty("class", "SecondaryAction")
-        cookie_file_btn.clicked.connect(self.import_cookie_file)
-        row2_layout.addWidget(cookie_file_btn)
-
-        import_btn = QPushButton("📂 TXT Import")
-        import_btn.setProperty("class", "SecondaryAction")
-        import_btn.clicked.connect(self.import_profiles_from_txt)
-        row2_layout.addWidget(import_btn)
-
-        row2_layout.addStretch()
-
-        bulk_proxy_btn = QPushButton("🔄 Proxy Upd")
-        bulk_proxy_btn.setProperty("class", "SecondaryAction")
-        bulk_proxy_btn.clicked.connect(self.execute_bulk_proxy_update)
-        row2_layout.addWidget(bulk_proxy_btn)
-
-        move_group_btn = QPushButton("📁 Group")
-        move_group_btn.setProperty("class", "SecondaryAction")
-        move_group_btn.clicked.connect(self.execute_bulk_group_update)
-        row2_layout.addWidget(move_group_btn)
-
-        export_btn = QPushButton("📤 Export Profiles")
-        export_btn.setProperty("class", "PrimaryAction")
-        export_btn.clicked.connect(self.execute_bulk_export)
-        row2_layout.addWidget(export_btn)
-
-        toolbar_layout.addLayout(row2_layout)
         layout.addWidget(toolbar_panel)
 
         # Table
@@ -962,11 +967,7 @@ class MainClientApp(QMainWindow):
         elif action_type == "screenshot":
              QMessageBox.information(self, "Screenshots Saved", "Screenshots saved to ./screenshots/ folder.")
 
-    def on_task_type_changed(self, text):
-        if text == "Custom URL":
-            self.custom_url_input.show()
-        else:
-            self.custom_url_input.hide()
+    # Removed obsolete on_task_type_changed
 
     def toggle_all_table_accounts(self, state):
         target_state = Qt.CheckState(state)
@@ -1210,36 +1211,56 @@ class MainClientApp(QMainWindow):
         else:
             QMessageBox.warning(self, "No Selection", "Please select at least one account.")
 
-    def launch_selected_profiles(self):
-        task_type = self.task_selector.currentText()
-        custom_url = self.custom_url_input.text().strip()
-
-        if task_type == "Custom URL" and not custom_url:
-            QMessageBox.warning(self, "Validation Error", "Please enter a Custom URL.")
-            return
+    def launch_selected_profiles(self, task_type):
+        custom_url = ""
+        if task_type == "Custom URL":
+            url, ok = QInputDialog.getText(self, "Custom URL", "Enter URL to launch:")
+            if ok and url.strip():
+                custom_url = url.strip()
+            else:
+                return
 
         profiles = get_all_profiles()
-        launched = 0
+        profiles_to_launch = []
+
         for row in range(self.table.rowCount()):
             chk_widget = self.table.cellWidget(row, 0)
             if chk_widget:
                 checkbox = chk_widget.findChild(QCheckBox)
                 if checkbox and checkbox.isChecked():
                     profile_id = checkbox.property("profile_id")
-                    # Check if already running
                     if profile_id in ACTIVE_DRIVERS:
                         continue
-
                     for p in profiles:
                         if p['id'] == profile_id:
-                            self.launch_single_profile(p, task_type, custom_url)
-                            launched += 1
+                            profiles_to_launch.append(p)
                             break
 
-        if launched > 0:
-            QMessageBox.information(self, "Launched", f"Successfully dispatched {launched} profiles.")
-        else:
-             QMessageBox.warning(self, "Validation Error", "No stopped profiles were selected.")
+        if not profiles_to_launch:
+             QMessageBox.warning(self, "Validation Error", "No valid stopped profiles were selected.")
+             return
+
+        for p in profiles_to_launch:
+            # We spin off the worker directly without triggering a full UI refresh on every loop
+            print(f"Dispatching profile {p['profile_name']}...")
+            worker = BrowserLauncherWorker(p, task_type, custom_url)
+            worker.signals.finished.connect(self.on_browser_closed)
+            worker.signals.error.connect(self.on_browser_error)
+            worker.signals.status_update.connect(self.on_status_update)
+            self.threadpool.start(worker)
+
+        self.load_profiles_into_table() # Refresh UI just once at the end
+        QMessageBox.information(self, "Launched", f"Successfully dispatched {len(profiles_to_launch)} profiles asynchronously.")
+
+    def launch_single_profile(self, profile_data, task_type="Facebook Login & Home", custom_url=""):
+        print(f"Launching profile {profile_data['profile_name']} on background thread...")
+        worker = BrowserLauncherWorker(profile_data, task_type, custom_url)
+        worker.signals.finished.connect(self.on_browser_closed)
+        worker.signals.error.connect(self.on_browser_error)
+        worker.signals.status_update.connect(self.on_status_update)
+        self.threadpool.start(worker)
+        # Update UI instantly to show 'Running' Guard
+        self.load_profiles_into_table()
 
     @pyqtSlot(int, str)
     def on_status_update(self, profile_id, new_status):
