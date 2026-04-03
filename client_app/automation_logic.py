@@ -259,7 +259,6 @@ class BrowserLauncherWorker(BaseBrowserWorker):
             options.add_argument("--force-device-scale-factor=1")
             options.add_argument("--disable-renderer-backgrounding")
             options.add_argument("--disable-popup-blocking")
-            options.add_argument(f"--user-data-dir={profile_dir}")
 
             # Explicitly set accept-languages to match proxy footprint
             locale = self.profile.get('locale', 'en-US')
@@ -538,7 +537,6 @@ class MarketplaceTaskWorker(BaseBrowserWorker):
             options.add_argument("--force-device-scale-factor=1")
             options.add_argument("--disable-renderer-backgrounding")
             options.add_argument("--disable-popup-blocking")
-            options.add_argument(f"--user-data-dir={profile_dir}")
 
             # Explicitly set accept-languages to match proxy footprint
             locale = self.profile.get('locale', 'en-US')
@@ -711,7 +709,6 @@ class AccountMonitorWorker(BaseBrowserWorker):
             options.add_argument("--disable-renderer-backgrounding")
             options.add_argument("--disable-popup-blocking")
             options.add_argument("--disable-popup-blocking")
-            options.add_argument(f"--user-data-dir={profile_dir}")
 
             # Explicitly set accept-languages to match proxy footprint
             locale = self.profile.get('locale', 'en-US')
