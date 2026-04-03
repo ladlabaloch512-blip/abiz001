@@ -274,6 +274,9 @@ class BrowserLauncherWorker(BaseBrowserWorker):
             # Register Active Driver globally
             ACTIVE_DRIVERS[profile_id] = driver
 
+            self.signals.status_update.emit(profile_id, "🌐 Starting")
+            update_profile_status(profile_id, "🌐 Starting")
+
             # Navigate based on Task Type
             if self.task_type == "Facebook Login & Home":
                 driver.get("https://www.facebook.com")
@@ -287,13 +290,15 @@ class BrowserLauncherWorker(BaseBrowserWorker):
                 driver.refresh()
             elif self.task_type == "Custom URL":
                 if not self.custom_url:
-                    print(f"[{account_id}] Warning: No Custom URL provided. Defaulting to Facebook.")
-                    driver.get("https://www.facebook.com")
+                    print(f"[{account_id}] Warning: No Custom URL provided. Defaulting to about:blank.")
+                    driver.get("about:blank")
                 else:
+                    if not self.custom_url.startswith("http"):
+                        self.custom_url = "https://" + self.custom_url
                     driver.get(self.custom_url)
             else:
                 # Manual (Blank Tab) - do nothing special
-                pass
+                driver.get("about:blank")
 
             # Basic cookie injection logic if a json cookie file exists in profile_dir
             cookie_file = os.path.join(profile_dir, 'cookies.json')
@@ -345,22 +350,27 @@ class BrowserLauncherWorker(BaseBrowserWorker):
                     _ = driver.window_handles
                     current_url = driver.current_url.lower()
 
-                    new_status = "Pending"
-                    if self.task_type == "Facebook Login & Home" or self.task_type == "Manual":
+                    new_status = "🌐 Running"
+                    if self.task_type == "Facebook Login & Home":
                         if 'checkpoint' in current_url:
                             new_status = "⚠️ Checkpoint"
-                        elif 'login/device-based' in current_url:
-                            new_status = "❌ Invalid"
-                        elif 'facebook.com' in current_url and not 'login' in current_url:
-                            new_status = "✅ Online/Active"
+                        elif 'login' in current_url:
+                            new_status = "⏳ Waiting for Login"
+                        else:
+                            # Intelligent Check: Verify actual DOM elements to confirm session
+                            try:
+                                # Look for the main Facebook home layout role or navigation
+                                if driver.find_elements(By.CSS_SELECTOR, "div[role='navigation'], div[aria-label='Facebook']"):
+                                    new_status = "✅ Active (Logged In)"
+                            except:
+                                pass
                     elif self.task_type == "Custom URL":
-                        # If we reached custom url
-                        target = self.custom_url.replace("https://", "").replace("http://", "").lower()
-                        if target in current_url:
-                            new_status = "✅ Online/Active"
+                        new_status = "✅ Active"
+                    elif self.task_type == "Manual (Blank Tab)":
+                        new_status = "✅ Active"
 
                     # Emit signal if status changed
-                    if new_status != last_status and new_status != "Pending":
+                    if new_status != last_status:
                         last_status = new_status
                         update_profile_status(profile_id, new_status)
                         self.signals.status_update.emit(profile_id, new_status)

@@ -113,6 +113,17 @@ QPushButton#WhatsAppBtn {
 QPushButton#WhatsAppBtn:hover {
     background-color: #1DA851;
 }
+/* General Button Styling for Toolbar */
+QPushButton {
+    border-radius: 6px;
+    font-weight: bold;
+    padding: 8px 12px;
+}
+
+QPushButton:hover {
+    background-color: palette(highlight);
+}
+
 /* Additional Rules for Tables and Dialogs in styles.qss */
 
 /* Table View Styling */
@@ -167,25 +178,49 @@ QDialog QLabel {
 }
 
 QPushButton.DangerAction {
-    background-color: #EF4444;
+    background-color: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #EF4444, stop:1 #DC2626);
     color: #FFFFFF;
     border: none;
-    border-radius: 4px;
-    padding: 6px 10px;
+    border-radius: 6px;
+    padding: 8px 15px;
     font-weight: bold;
 }
 QPushButton.DangerAction:hover {
-    background-color: #DC2626;
+    background-color: #B91C1C;
 }
 
 QPushButton.LaunchBtn {
-    background-color: #10B981;
+    background-color: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #10B981, stop:1 #059669);
     color: #FFFFFF;
     border: none;
-    border-radius: 4px;
-    padding: 6px 10px;
+    border-radius: 6px;
+    padding: 8px 15px;
     font-weight: bold;
 }
 QPushButton.LaunchBtn:hover {
-    background-color: #059669;
+    background-color: #047857;
+}
+
+QPushButton.PrimaryAction {
+    background-color: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #6366F1, stop:1 #4F46E5);
+    color: #FFFFFF;
+    border: none;
+    border-radius: 6px;
+    padding: 8px 15px;
+    font-weight: bold;
+}
+QPushButton.PrimaryAction:hover {
+    background-color: #4338CA;
+}
+
+QPushButton.SecondaryAction {
+    background-color: #374151;
+    color: #FFFFFF;
+    border: 1px solid #4B5563;
+    border-radius: 6px;
+    padding: 8px 15px;
+    font-weight: bold;
+}
+QPushButton.SecondaryAction:hover {
+    background-color: #4B5563;
 }

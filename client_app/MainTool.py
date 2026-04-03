@@ -309,23 +309,12 @@ class MainClientApp(QMainWindow):
         layout = QVBoxLayout(right_panel)
         layout.setContentsMargins(0, 0, 0, 0)
 
-        # Header (Top Actions)
+        # Header Goal Setup
         header_layout = QHBoxLayout()
         title_label = QLabel("Account Manager")
         title_label.setObjectName("HeaderTitle")
         header_layout.addWidget(title_label)
         header_layout.addStretch()
-
-        add_btn = QPushButton("+ Add Profile")
-        add_btn.setObjectName("PrimaryAction")
-        add_btn.setStyleSheet("background-color: #6366F1; color: white; padding: 8px 15px; border-radius: 4px; font-weight: bold;")
-        add_btn.clicked.connect(self.open_add_profile_dialog)
-        header_layout.addWidget(add_btn)
-
-        import_btn = QPushButton("📂 Import from TXT")
-        import_btn.setStyleSheet("background-color: #4B5563; color: white; padding: 8px 15px; border-radius: 4px; font-weight: bold;")
-        import_btn.clicked.connect(self.import_profiles_from_txt)
-        header_layout.addWidget(import_btn)
 
         self.task_selector = QComboBox()
         self.task_selector.addItems(["Facebook Login & Home", "Custom URL", "Manual (Blank Tab)"])
@@ -339,78 +328,94 @@ class MainClientApp(QMainWindow):
         header_layout.addWidget(self.custom_url_input)
 
         status_btn = QPushButton("🔄 Auto-Login Status Check")
-        status_btn.setStyleSheet("background-color: #F59E0B; color: white; padding: 8px 15px; border-radius: 4px; font-weight: bold;")
+        status_btn.setProperty("class", "SecondaryAction")
         status_btn.clicked.connect(self.check_selected_profiles_status)
         header_layout.addWidget(status_btn)
 
         layout.addLayout(header_layout)
 
-        # Bulk Controls Toolbar
-        bulk_toolbar = QFrame()
-        bulk_toolbar.setStyleSheet("background-color: #1E232B; border-radius: 6px; padding: 5px;")
-        bulk_layout = QHBoxLayout(bulk_toolbar)
-        bulk_layout.setContentsMargins(5, 5, 5, 5)
+        # Dual-Row Toolbar Panel
+        toolbar_panel = QFrame()
+        toolbar_panel.setStyleSheet("background-color: #1E232B; border-radius: 8px; border: 1px solid #2D3139;")
+        toolbar_layout = QVBoxLayout(toolbar_panel)
+        toolbar_layout.setContentsMargins(10, 10, 10, 10)
+        toolbar_layout.setSpacing(10)
+
+        # --- ROW 1: Launch, Stop, Delete, Select All, Search ---
+        row1_layout = QHBoxLayout()
 
         bulk_launch_btn = QPushButton("🚀 Bulk Launch")
-        bulk_launch_btn.setStyleSheet("background-color: #10B981; color: white; padding: 6px; border-radius: 4px; font-weight: bold;")
+        bulk_launch_btn.setProperty("class", "LaunchBtn")
         bulk_launch_btn.clicked.connect(self.launch_selected_profiles)
-        bulk_layout.addWidget(bulk_launch_btn)
+        row1_layout.addWidget(bulk_launch_btn)
 
         bulk_stop_btn = QPushButton("🛑 Bulk Stop")
-        bulk_stop_btn.setStyleSheet("background-color: #EF4444; color: white; padding: 6px; border-radius: 4px; font-weight: bold;")
+        bulk_stop_btn.setProperty("class", "DangerAction")
         bulk_stop_btn.clicked.connect(self.stop_selected_profiles)
-        bulk_layout.addWidget(bulk_stop_btn)
+        row1_layout.addWidget(bulk_stop_btn)
 
         bulk_delete_btn = QPushButton("🗑️ Bulk Delete")
-        bulk_delete_btn.setStyleSheet("background-color: #EF4444; color: white; padding: 6px; border-radius: 4px; font-weight: bold;")
+        bulk_delete_btn.setProperty("class", "DangerAction")
         bulk_delete_btn.clicked.connect(self.execute_bulk_delete)
-        bulk_layout.addWidget(bulk_delete_btn)
+        row1_layout.addWidget(bulk_delete_btn)
 
-        move_group_btn = QPushButton("📂 Move to Group")
-        move_group_btn.setStyleSheet("background-color: #4B5563; color: white; padding: 6px; border-radius: 4px; font-weight: bold;")
-        move_group_btn.clicked.connect(self.execute_bulk_group_update)
-        bulk_layout.addWidget(move_group_btn)
+        row1_layout.addStretch()
 
-        bulk_proxy_btn = QPushButton("🔄 Bulk Proxy Update")
-        bulk_proxy_btn.setStyleSheet("background-color: #4B5563; color: white; padding: 6px; border-radius: 4px; font-weight: bold;")
-        bulk_proxy_btn.clicked.connect(self.execute_bulk_proxy_update)
-        bulk_layout.addWidget(bulk_proxy_btn)
-
-        bulk_layout.addStretch()
-
-        # Additional Builders (Cookies, Empty Creation)
-        bulk_create_btn = QPushButton("➕ Bulk Empty Create")
-        bulk_create_btn.setStyleSheet("background-color: #374151; color: white; padding: 6px; border-radius: 4px;")
-        bulk_create_btn.clicked.connect(self.bulk_empty_create)
-        bulk_layout.addWidget(bulk_create_btn)
-
-        cookie_file_btn = QPushButton("🍪 Import Cookie File")
-        cookie_file_btn.setStyleSheet("background-color: #374151; color: white; padding: 6px; border-radius: 4px;")
-        cookie_file_btn.clicked.connect(self.import_cookie_file)
-        bulk_layout.addWidget(cookie_file_btn)
-
-        cookie_folder_btn = QPushButton("📁 Import Cookies via Folder")
-        cookie_folder_btn.setStyleSheet("background-color: #374151; color: white; padding: 6px; border-radius: 4px;")
-        cookie_folder_btn.clicked.connect(self.import_via_cookies)
-        bulk_layout.addWidget(cookie_folder_btn)
-
-        layout.addWidget(bulk_toolbar)
-
-        # Table Controls: Search, Select All
-        table_controls_layout = QHBoxLayout()
         self.select_all_checkbox = QCheckBox("Select All")
         self.select_all_checkbox.setStyleSheet("color: white; padding: 5px 10px; font-weight: bold;")
         self.select_all_checkbox.stateChanged.connect(self.toggle_all_table_accounts)
-        table_controls_layout.addWidget(self.select_all_checkbox)
+        row1_layout.addWidget(self.select_all_checkbox)
 
-        # Search Bar
         self.search_input = QLineEdit()
         self.search_input.setPlaceholderText("🔍 Search Name or Status...")
-        self.search_input.setStyleSheet("background-color: #1E232B; color: white; padding: 5px; border-radius: 4px; border: 1px solid #4B5563;")
+        self.search_input.setFixedWidth(200)
         self.search_input.textChanged.connect(self.filter_table)
-        table_controls_layout.addWidget(self.search_input)
+        row1_layout.addWidget(self.search_input)
 
-        layout.addLayout(table_controls_layout)
+        toolbar_layout.addLayout(row1_layout)
+
+        # --- ROW 2: Add, Bulk Create, Cookies, Text Import, Proxies, Groups ---
+        row2_layout = QHBoxLayout()
+
+        add_btn = QPushButton("➕ Add Profile")
+        add_btn.setProperty("class", "PrimaryAction")
+        add_btn.clicked.connect(self.open_add_profile_dialog)
+        row2_layout.addWidget(add_btn)
+
+        bulk_create_btn = QPushButton("🔢 Bulk Create")
+        bulk_create_btn.setProperty("class", "SecondaryAction")
+        bulk_create_btn.clicked.connect(self.bulk_empty_create)
+        row2_layout.addWidget(bulk_create_btn)
+
+        cookie_folder_btn = QPushButton("📁 Cookie Folder")
+        cookie_folder_btn.setProperty("class", "SecondaryAction")
+        cookie_folder_btn.clicked.connect(self.import_via_cookies)
+        row2_layout.addWidget(cookie_folder_btn)
+
+        cookie_file_btn = QPushButton("🍪 Cookie File")
+        cookie_file_btn.setProperty("class", "SecondaryAction")
+        cookie_file_btn.clicked.connect(self.import_cookie_file)
+        row2_layout.addWidget(cookie_file_btn)
+
+        import_btn = QPushButton("📂 TXT Import")
+        import_btn.setProperty("class", "SecondaryAction")
+        import_btn.clicked.connect(self.import_profiles_from_txt)
+        row2_layout.addWidget(import_btn)
+
+        row2_layout.addStretch()
+
+        bulk_proxy_btn = QPushButton("🔄 Proxy Upd")
+        bulk_proxy_btn.setProperty("class", "SecondaryAction")
+        bulk_proxy_btn.clicked.connect(self.execute_bulk_proxy_update)
+        row2_layout.addWidget(bulk_proxy_btn)
+
+        move_group_btn = QPushButton("📁 Group")
+        move_group_btn.setProperty("class", "SecondaryAction")
+        move_group_btn.clicked.connect(self.execute_bulk_group_update)
+        row2_layout.addWidget(move_group_btn)
+
+        toolbar_layout.addLayout(row2_layout)
+        layout.addWidget(toolbar_panel)
 
         # Table
         self.table = QTableWidget()
@@ -1056,17 +1061,28 @@ class MainClientApp(QMainWindow):
             QMessageBox.warning(self, "Validation Error", "Please enter a Custom URL.")
             return
 
-        profiles = get_all_profiles() # Fetch once for efficiency
+        profiles = get_all_profiles()
+        launched = 0
         for row in range(self.table.rowCount()):
             chk_widget = self.table.cellWidget(row, 0)
             if chk_widget:
                 checkbox = chk_widget.findChild(QCheckBox)
                 if checkbox and checkbox.isChecked():
                     profile_id = checkbox.property("profile_id")
+                    # Check if already running
+                    if profile_id in ACTIVE_DRIVERS:
+                        continue
+
                     for p in profiles:
                         if p['id'] == profile_id:
                             self.launch_single_profile(p, task_type, custom_url)
+                            launched += 1
                             break
+
+        if launched > 0:
+            QMessageBox.information(self, "Launched", f"Successfully dispatched {launched} profiles.")
+        else:
+             QMessageBox.warning(self, "Validation Error", "No stopped profiles were selected.")
 
     @pyqtSlot(int, str)
     def on_status_update(self, profile_id, new_status):

@@ -154,16 +154,24 @@ def get_all_profiles():
         return []
 
 def get_next_sequential_id():
-    """Uses SELECT COUNT(*) FROM profiles to get the next sequential number as requested."""
+    """Finds the highest 'idX' from the profile_name column to ensure unique monotonic naming."""
     conn = get_db_connection()
     cursor = conn.cursor()
-    cursor.execute("SELECT COUNT(*) as count FROM profiles")
-    row = cursor.fetchone()
+    cursor.execute("SELECT profile_name FROM profiles WHERE profile_name LIKE 'id%'")
+    rows = cursor.fetchall()
     conn.close()
 
-    if row and row['count']:
-        return int(row['count']) + 1
-    return 1
+    max_id = 0
+    for row in rows:
+        name = row['profile_name']
+        try:
+            num = int(name[2:])
+            if num > max_id:
+                max_id = num
+        except ValueError:
+            pass
+
+    return max_id + 1
 
 def bulk_insert_profiles(profiles_data):
     """
