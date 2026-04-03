@@ -79,7 +79,9 @@ class BaseBrowserWorker(QRunnable):
             'SingletonLock',
             'SingletonCookie',
             'SingletonSocket',
-            'Local State'
+            'Local State',
+            'lock',
+            'Parent.lock'
         ]
         # Check root and Default folder
         dirs_to_check = [profile_dir, os.path.join(profile_dir, "Default")]
