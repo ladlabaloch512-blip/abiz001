@@ -264,13 +264,15 @@ class MainClientApp(QMainWindow):
                     pass
             chrome_ram_gb = chrome_ram_mb / 1024
 
-            # Dynamic Recommender logic based on 800MB per Chromium instance
-            max_profiles = int((mem.available / (1024 ** 2)) / 800)
+            # Dynamic Recommender logic based on 600MB per Chromium instance
+            max_profiles = int((mem.available / (1024 ** 2)) / 600)
+            mem_percent = mem.percent
 
-            self.hw_stats_label.setText(f"CPU Usage: {cpu_usage}%\nApp Memory: {int(chrome_ram_mb)} MB\nAvailable System RAM: {free_ram_gb:.1f} GB / {total_ram_gb:.1f} GB")
+            self.hw_stats_label.setText(f"System RAM Usage: {mem_percent}%\nAvailable RAM: {free_ram_gb:.1f} GB / {total_ram_gb:.1f} GB\nRAM being used by our Browsers: {int(chrome_ram_mb)} MB")
 
             active_count = len(ACTIVE_DRIVERS)
-            self.ai_rec_label.setText(f"Active Browsers: {active_count}\nRecommended Active Profiles for your PC: {max_profiles}")
+
+            self.ai_rec_label.setText(f"Active Browsers: {active_count}\nSafe to open {max_profiles} more profiles")
         except Exception as e:
             self.hw_stats_label.setText("Hardware data unavailable")
 
@@ -398,8 +400,8 @@ class MainClientApp(QMainWindow):
         toolbar_layout.setContentsMargins(10, 10, 10, 10)
         toolbar_layout.setSpacing(15)
 
-        # 1. Bulk Actions Menu
-        bulk_ops_btn = QPushButton("🚀 Bulk Actions ▾")
+        # 1. Actions Menu
+        bulk_ops_btn = QPushButton("🚀 Actions ▾")
         bulk_ops_btn.setProperty("class", "LaunchBtn")
         bulk_ops_menu = QMenu(bulk_ops_btn)
 
@@ -414,8 +416,11 @@ class MainClientApp(QMainWindow):
 
         bulk_ops_menu.addSeparator()
 
-        act_login = bulk_ops_menu.addAction("🔑 Auto-Login Session")
-        act_login.triggered.connect(self.check_selected_profiles_status)
+        act_login = bulk_ops_menu.addAction("🔑 Auto-Login [🚀 All At Once]")
+        act_login.triggered.connect(lambda: self.check_selected_profiles_status(sequential=False))
+
+        act_login_seq = bulk_ops_menu.addAction("🔑 Auto-Login [🔄 Sequential Mode]")
+        act_login_seq.triggered.connect(lambda: self.check_selected_profiles_status(sequential=True))
 
         act_stop = bulk_ops_menu.addAction("🛑 Bulk Stop Selected")
         act_stop.triggered.connect(self.stop_selected_profiles)
@@ -423,8 +428,8 @@ class MainClientApp(QMainWindow):
         bulk_ops_btn.setMenu(bulk_ops_menu)
         toolbar_layout.addWidget(bulk_ops_btn)
 
-        # 2. Import/Export Menu
-        io_btn = QPushButton("📂 Import / Export ▾")
+        # 2. Data Menu
+        io_btn = QPushButton("📂 Data ▾")
         io_btn.setProperty("class", "PrimaryAction")
         io_menu = QMenu(io_btn)
 
@@ -445,8 +450,8 @@ class MainClientApp(QMainWindow):
         io_btn.setMenu(io_menu)
         toolbar_layout.addWidget(io_btn)
 
-        # 3. Settings & Wipe Menu
-        maint_btn = QPushButton("⚙️ Settings & Wipe ▾")
+        # 3. Manage Menu
+        maint_btn = QPushButton("⚙️ Manage ▾")
         maint_btn.setProperty("class", "SecondaryAction")
         maint_menu = QMenu(maint_btn)
 
@@ -472,8 +477,8 @@ class MainClientApp(QMainWindow):
         maint_btn.setMenu(maint_menu)
         toolbar_layout.addWidget(maint_btn)
 
-        # 4. Groups Control Menu
-        groups_btn = QPushButton("👥 Groups Control ▾")
+        # 4. Groups Menu
+        groups_btn = QPushButton("👥 Groups ▾")
         groups_btn.setProperty("class", "SecondaryAction")
         groups_menu = QMenu(groups_btn)
 
@@ -837,6 +842,11 @@ class MainClientApp(QMainWindow):
         zip_filename = f"FB_Profiles_Export_{timestamp}.zip"
         zip_path = os.path.join(export_dir, zip_filename)
 
+        QMessageBox.information(self, "Export Started", "Profile export started.\nThe system will now extract live cookies silently to ensure cross-device portability. This may take a few moments per profile...")
+
+        # We process this in a background thread or synchronous blocking way.
+        # Since this involves multiple headless chromium launches, we'll block the UI but use QApplication.processEvents()
+
         exported_count = 0
         try:
             with zipfile.ZipFile(zip_path, 'w', zipfile.ZIP_DEFLATED) as zipf:
@@ -849,6 +859,16 @@ class MainClientApp(QMainWindow):
                     if p['id'] in selected_ids:
                         target_folder = os.path.join(profiles_base, f"id_{p['account_id']}")
                         if os.path.exists(target_folder):
+                            # Cross-Device Portability: Extract live session to session_v2.json
+                            session_file = os.path.join(target_folder, "session_v2.json")
+                            print(f"Extracting live cookies for ID {p['account_id']}...")
+
+                            # We can run the worker synchronously here since we are inside a blocking UI method anyway,
+                            # but to avoid total freeze, we instantiate it and call run directly.
+                            from client_app.automation_logic import CookieExportWorker
+                            worker = CookieExportWorker(p, self.global_driver_path, session_file)
+                            worker.run() # blocks until headless extraction is complete
+
                             exported_count += 1
 
                             # Write physical folder
@@ -875,6 +895,8 @@ class MainClientApp(QMainWindow):
 
         base_dir = get_app_dir()
         profiles_base = os.path.join(base_dir, 'profiles')
+
+        QMessageBox.information(self, "Import Started", "Profile import started.\nThe system will unpack files and then silently launch each profile to inject live cookies for cross-device portability. This may take a few moments...")
 
         imported_count = 0
         try:
@@ -1307,10 +1329,11 @@ class MainClientApp(QMainWindow):
         worker.signals.status_update.connect(self.on_status_update)
         self.threadpool.start(worker)
         self.load_profiles_into_table()
+        return worker
 
-    def check_selected_profiles_status(self):
+    def check_selected_profiles_status(self, sequential=False):
         profiles = get_all_profiles()
-        launched = 0
+        profiles_to_launch = []
         for row in range(self.table.rowCount()):
             chk_widget = self.table.cellWidget(row, 0)
             if chk_widget:
@@ -1319,13 +1342,30 @@ class MainClientApp(QMainWindow):
                     profile_id = checkbox.property("profile_id")
                     for p in profiles:
                         if p['id'] == profile_id:
-                            self.check_single_profile_status(p)
-                            launched += 1
+                            profiles_to_launch.append(p)
                             break
-        if launched > 0:
-            QMessageBox.information(self, "Status Check Started", f"Queued {launched} accounts for Auto-Login & Status Check.\nThe table will update automatically.")
-        else:
+
+        if not profiles_to_launch:
             QMessageBox.warning(self, "No Selection", "Please select at least one account.")
+            return
+
+        if sequential:
+            self.sequential_queue = profiles_to_launch
+            QMessageBox.information(self, "Sequential Mode Started", f"Queued {len(profiles_to_launch)} accounts for One-by-One Auto-Login.\nThe first will launch now.")
+            self._launch_next_in_queue()
+        else:
+            for p in profiles_to_launch:
+                self.check_single_profile_status(p)
+            QMessageBox.information(self, "Status Check Started", f"Queued {len(profiles_to_launch)} accounts for simultaneous Auto-Login & Status Check.\nThe table will update automatically.")
+
+    def _launch_next_in_queue(self):
+        if not hasattr(self, 'sequential_queue') or not self.sequential_queue:
+            return
+
+        p = self.sequential_queue.pop(0)
+        worker = self.check_single_profile_status(p)
+        if worker:
+            worker.signals.finished.connect(lambda pid: self._launch_next_in_queue())
 
     def launch_selected_profiles(self, task_type):
         custom_url = ""

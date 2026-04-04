@@ -41,20 +41,33 @@ class StopBrowserWorker(QRunnable):
     def __init__(self, profile_ids):
         super().__init__()
         self.profile_ids = profile_ids
+        # Need to know accounts to get the profile_dir for clean_cache_bloat
+        self.base_dir = get_app_dir()
 
     @pyqtSlot()
     def run(self):
+        # Local import to avoid circular dependency
+        from .database import get_all_profiles
+        profiles = {p['id']: p['account_id'] for p in get_all_profiles()}
+
         for profile_id in self.profile_ids:
             driver = ACTIVE_DRIVERS.get(profile_id)
             if driver:
+                acc_id = profiles.get(profile_id)
+                profile_dir = os.path.join(self.base_dir, 'profiles', f'id_{acc_id}') if acc_id else ""
+
                 try:
-                    driver.quit()
+                    # Use the hard close to eliminate Zombies and clear bloat
+                    BaseBrowserWorker().hard_close_browser(driver, profile_dir)
                 except Exception as e:
                     print(f"Error quitting driver for {profile_id}: {e}")
                 finally:
                     if profile_id in ACTIVE_DRIVERS:
                         del ACTIVE_DRIVERS[profile_id]
                     update_profile_status(profile_id, 'Ready')
+
+                    if profile_dir:
+                        BaseBrowserWorker().clean_cache_bloat(profile_dir)
 
 def stop_all_selected(profile_ids, threadpool=None):
     """Dispatches stopping logic to a background thread to prevent UI freezing."""
@@ -96,6 +109,47 @@ class BaseBrowserWorker(QRunnable):
                             shutil.rmtree(lock_path)
                     except Exception as e:
                         print(f"Warning: Could not remove lock file {lock_path}: {e}")
+
+    def clean_cache_bloat(self, profile_dir):
+        """Clears Cache and System Cache folders while keeping Cookies and Local State to save RAM."""
+        target_folders = [
+            os.path.join(profile_dir, "Default", "Cache"),
+            os.path.join(profile_dir, "Default", "System Cache"),
+            os.path.join(profile_dir, "Default", "Code Cache"),
+            os.path.join(profile_dir, "Default", "GPUCache"),
+            os.path.join(profile_dir, "Crash Reports"),
+            os.path.join(profile_dir, "ShaderCache"),
+            os.path.join(profile_dir, "Shader Cache")
+        ]
+
+        for folder in target_folders:
+            if os.path.exists(folder):
+                try:
+                    shutil.rmtree(folder)
+                except Exception as e:
+                    print(f"Failed to clear cache {folder}: {e}")
+
+    def hard_close_browser(self, driver, profile_dir):
+        """Forcefully kills any leftover Chromium processes linked to this specific profile to prevent Zombie bloat."""
+        if driver:
+            try:
+                driver.quit()
+            except:
+                pass
+
+        # Resolve absolute path to strictly match psutil cmdline args
+        abs_profile_dir = os.path.abspath(profile_dir)
+        import psutil
+        for proc in psutil.process_iter(['pid', 'name', 'cmdline']):
+            try:
+                cmdline = proc.info.get('cmdline')
+                if cmdline:
+                    # Check if this process belongs to our exact Chrome profile directory
+                    if any(abs_profile_dir in arg for arg in cmdline if arg) and ('chrome' in proc.info['name'].lower() or 'chromium' in proc.info['name'].lower()):
+                        print(f"Killing zombie process {proc.info['pid']} ({proc.info['name']}) linked to {profile_dir}")
+                        proc.kill()
+            except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
+                pass
 
     def inject_stealth_scripts(self, driver, profile):
         """
@@ -256,13 +310,17 @@ class BrowserLauncherWorker(BaseBrowserWorker):
             # Setup Chrome Options
             options = uc.ChromeOptions()
 
-            # 2. Anti-Detect Flags
+            # 2. Anti-Detect Flags & Advanced Resource Management
             options.add_argument("--disable-blink-features=AutomationControlled")
             options.add_argument("--disable-features=IsolateOrigins,site-per-process")
             options.add_argument("--force-device-scale-factor=1")
             options.add_argument("--disable-renderer-backgrounding")
             options.add_argument("--disable-popup-blocking")
             options.add_argument("--profile-directory=Default")
+            # Bloat Management Flags
+            options.add_argument("--disable-gpu")
+            options.add_argument("--disable-dev-shm-usage")
+            options.add_argument('--js-flags="--max-old-space-size=512"')
 
             # Explicitly set accept-languages to match proxy footprint
             locale = self.profile.get('locale', 'en-US')
@@ -392,11 +450,13 @@ class BrowserLauncherWorker(BaseBrowserWorker):
             # 7. AutoSync Status Background Loop
             # Keep alive and monitor URL to dynamically emit status
             last_status = None
+            final_url_detected = ""
             while True:
                 try:
                     if driver.window_handles:
                         driver.switch_to.window(driver.window_handles[0])
                     current_url = driver.current_url.lower()
+                    final_url_detected = current_url
 
                     new_status = "🌐 Running"
                     if self.task_type == "Facebook Login & Home":
@@ -433,13 +493,26 @@ class BrowserLauncherWorker(BaseBrowserWorker):
         except Exception as e:
             self.signals.error.emit((str(e),))
         finally:
-            if 'profile_id' in locals() and profile_id in ACTIVE_DRIVERS:
-                del ACTIVE_DRIVERS[profile_id]
+            if 'profile_id' in locals():
+                if 'final_url_detected' in locals() and final_url_detected:
+                    final_state = "Ready"
+                    if 'checkpoint' in final_url_detected:
+                        final_state = "⚠️ Checkpoint"
+                    elif any(x in final_url_detected for x in ['/home', '/feed', '?sk=h_chr']):
+                        final_state = "✅ Active"
+                    update_profile_status(profile_id, final_state)
+                    self.signals.status_update.emit(profile_id, final_state)
+
+                if profile_id in ACTIVE_DRIVERS:
+                    del ACTIVE_DRIVERS[profile_id]
             if driver:
                 try:
                     driver.quit()
                 except:
                     pass
+            # Clean cache bloat automatically
+            if 'profile_dir' in locals():
+                self.clean_cache_bloat(profile_dir)
             self.signals.finished.emit(self.profile['id'])
 
 
@@ -534,22 +607,58 @@ class MarketplaceTaskWorker(BaseBrowserWorker):
             print(f"Error force_filling {xpath}: {e}")
 
     def select_condition(self, driver, condition_text):
-        """Scrolls to the Condition dropdown, clicks it, and selects the matching option."""
+        """Scrolls to the Condition dropdown, clicks it, and selects the matching option using relative XPath."""
         wait = WebDriverWait(driver, 10)
         try:
-            element = wait.until(EC.presence_of_element_located((By.XPATH, XPATH_CONDITION_DROPDOWN)))
+            # Use specific relative XPath finding div[aria-label='Condition']
+            relative_xpath = "//div[@aria-label='Condition']"
+            element = wait.until(EC.presence_of_element_located((By.XPATH, relative_xpath)))
             driver.execute_script("arguments[0].scrollIntoView({block: 'center', behavior: 'smooth'});", element)
             time.sleep(0.5)
             element.click()
             time.sleep(1.0) # Wait for the Facebook popup menu to render
 
-            # The dropdown options render in a listbox attached to the body, usually identifiable by text
-            option_xpath = f"//div[@role='option']//span[contains(text(), '{condition_text}')]"
+            # The dropdown options render in a listbox attached to the body
+            option_xpath = f"//div[@role='option']//span[translate(text(), 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz')='{condition_text.lower()}']"
             option = wait.until(EC.element_to_be_clickable((By.XPATH, option_xpath)))
             option.click()
             time.sleep(0.5)
         except Exception as e:
             print(f"Error selecting condition '{condition_text}': {e}")
+
+    def force_fill_location(self, driver, xpath, text):
+        """Types the city, waits 3s, then uses DOWN + ENTER to select from Facebook's dropdown."""
+        wait = WebDriverWait(driver, 10)
+        try:
+            element = wait.until(EC.presence_of_element_located((By.XPATH, xpath)))
+            driver.execute_script("arguments[0].scrollIntoView({block: 'center', behavior: 'smooth'});", element)
+            time.sleep(0.5)
+
+            actions = ActionChains(driver)
+            actions.move_to_element(element).click().perform()
+            time.sleep(0.5)
+
+            # Clear existing location
+            actions.key_down(Keys.CONTROL).send_keys('a').key_up(Keys.CONTROL).send_keys(Keys.BACKSPACE).perform()
+            time.sleep(0.5)
+
+            # Type the city
+            for char in text:
+                actions.send_keys(char).perform()
+                time.sleep(random.uniform(0.03, 0.08))
+
+            # Wait 3s for Facebook's dynamic autocomplete list to populate
+            print(f"Waiting 3s for location autocomplete for: {text}")
+            time.sleep(3.0)
+
+            # Press DOWN then ENTER to select the first suggested city
+            actions.send_keys(Keys.DOWN).perform()
+            time.sleep(0.5)
+            actions.send_keys(Keys.ENTER).perform()
+            time.sleep(0.5)
+
+        except Exception as e:
+            print(f"Error force_filling location {xpath}: {e}")
 
     @pyqtSlot()
     def run(self):
@@ -570,6 +679,9 @@ class MarketplaceTaskWorker(BaseBrowserWorker):
             options.add_argument("--disable-renderer-backgrounding")
             options.add_argument("--disable-popup-blocking")
             options.add_argument("--profile-directory=Default")
+            options.add_argument("--disable-gpu")
+            options.add_argument("--disable-dev-shm-usage")
+            options.add_argument('--js-flags="--max-old-space-size=512"')
 
             # Explicitly set accept-languages to match proxy footprint
             locale = self.profile.get('locale', 'en-US')
@@ -666,15 +778,7 @@ class MarketplaceTaskWorker(BaseBrowserWorker):
 
                 if final_location:
                     print(f"[{account_id}] Entering Location: {final_location}")
-                    self.force_fill(driver, XPATH_LOCATION_INPUT, final_location)
-                    # Wait for autocomplete, push ARROW_DOWN to grab the first suggestion and hit ENTER
-                    time.sleep(2.0)
-                    try:
-                        actions = ActionChains(driver)
-                        actions.send_keys(Keys.ARROW_DOWN).send_keys(Keys.ENTER).perform()
-                        time.sleep(1.0)
-                    except:
-                        pass
+                    self.force_fill_location(driver, XPATH_LOCATION_INPUT, final_location)
 
                 print(f"[{account_id}] Entering Description...")
                 self.force_fill(driver, XPATH_DESC_INPUT, final_desc)
@@ -722,9 +826,15 @@ class MarketplaceTaskWorker(BaseBrowserWorker):
                 del ACTIVE_DRIVERS[profile_id]
             if driver:
                 try:
-                    driver.quit()
+                    if 'profile_dir' in locals():
+                        self.hard_close_browser(driver, profile_dir)
+                    else:
+                        driver.quit()
                 except:
                     pass
+            # Clean cache bloat automatically
+            if 'profile_dir' in locals():
+                self.clean_cache_bloat(profile_dir)
             self.signals.finished.emit(self.profile['id'])
 
 
@@ -807,9 +917,124 @@ class CookieExportWorker(BaseBrowserWorker):
         finally:
             if driver:
                 try:
-                    driver.quit()
+                    if 'profile_dir' in locals():
+                        self.hard_close_browser(driver, profile_dir)
+                    else:
+                        driver.quit()
                 except:
                     pass
+            self.signals.finished.emit(self.profile['id'])
+
+
+class CookieImportWorker(BaseBrowserWorker):
+    """
+    QRunnable thread to launch Chrome headless, navigate to Facebook, and inject session_v2.json cookies
+    to finalize cross-device portability without triggering encryption faults.
+    """
+    def __init__(self, profile_data, driver_executable_path, load_path):
+        super().__init__()
+        self.profile = profile_data
+        self.driver_executable_path = driver_executable_path
+        self.load_path = load_path
+        self.signals = WorkerSignals()
+
+    @pyqtSlot()
+    def run(self):
+        driver = None
+        try:
+            account_id = self.profile['account_id']
+            base_dir = get_app_dir()
+            profile_dir = os.path.join(base_dir, 'profiles', f'id_{account_id}')
+
+            options = uc.ChromeOptions()
+            options.add_argument("--disable-blink-features=AutomationControlled")
+            options.add_argument("--disable-features=IsolateOrigins,site-per-process")
+            options.add_argument("--force-device-scale-factor=1")
+            options.add_argument("--disable-renderer-backgrounding")
+            options.add_argument("--disable-popup-blocking")
+            options.add_argument("--profile-directory=Default")
+            # Make it headless for silent injection
+            options.add_argument("--headless=new")
+
+            locale = self.profile.get('locale', 'en-US')
+            options.add_argument(f"--accept-lang={locale}")
+
+            user_agent = self.profile.get('custom_user_agent', '').strip()
+            if user_agent:
+                options.add_argument(f'--user-agent={user_agent}')
+
+            self.force_clean_locks(profile_dir)
+
+            try:
+                if self.driver_executable_path:
+                    driver = uc.Chrome(
+                        options=options,
+                        no_first_run=True,
+                        user_data_dir=profile_dir,
+                        driver_executable_path=self.driver_executable_path
+                    )
+                else:
+                    driver = uc.Chrome(
+                        options=options,
+                        no_first_run=True,
+                        user_data_dir=profile_dir,
+                        version_main=146
+                    )
+            except Exception as uc_err:
+                print(f"[{account_id}] Warning: Failed to launch explicit or versioned driver: {uc_err}")
+                driver = uc.Chrome(
+                    options=options,
+                    no_first_run=True,
+                    user_data_dir=profile_dir
+                )
+            driver.set_page_load_timeout(30)
+            self.inject_stealth_scripts(driver, self.profile)
+
+            self.signals.status_update.emit(self.profile['id'], "🔄 Injecting Session...")
+
+            # Navigate to the domain first so cookies can be set
+            driver.get("https://www.facebook.com")
+            time.sleep(2)
+
+            if os.path.exists(self.load_path):
+                with open(self.load_path, 'r', encoding='utf-8') as f:
+                    cookies = json.load(f)
+                    for cookie in cookies:
+                        try:
+                            if 'sameSite' in cookie and cookie['sameSite'] not in ["Strict", "Lax", "None"]:
+                                del cookie['sameSite']
+                            # Add domain if not strictly present based on url
+                            try:
+                                driver.add_cookie(cookie)
+                            except Exception as add_err:
+                                # Fallback domain stripping if cross-origin fails
+                                if 'domain' in cookie:
+                                    del cookie['domain']
+                                driver.add_cookie(cookie)
+                        except Exception as e:
+                            print(f"[{account_id}] Warning: Failed to add a cookie: {e}")
+
+                # Refresh to verify and save to local state
+                driver.refresh()
+                time.sleep(3)
+                print(f"[{account_id}] Successfully injected fresh cookies from {self.load_path}")
+            else:
+                print(f"[{account_id}] No session_v2.json found at {self.load_path}")
+
+        except Exception as e:
+            self.signals.error.emit((str(e),))
+        finally:
+            if driver:
+                try:
+                    if 'profile_dir' in locals():
+                        self.hard_close_browser(driver, profile_dir)
+                    else:
+                        driver.quit()
+                except:
+                    pass
+            # Clean cache bloat automatically
+            if 'profile_dir' in locals():
+                self.clean_cache_bloat(profile_dir)
             self.signals.finished.emit(self.profile['id'])
 
 
@@ -842,6 +1067,9 @@ class AccountMonitorWorker(BaseBrowserWorker):
             options.add_argument("--disable-renderer-backgrounding")
             options.add_argument("--disable-popup-blocking")
             options.add_argument("--profile-directory=Default")
+            options.add_argument("--disable-gpu")
+            options.add_argument("--disable-dev-shm-usage")
+            options.add_argument('--js-flags="--max-old-space-size=512"')
 
             # Explicitly set accept-languages to match proxy footprint
             locale = self.profile.get('locale', 'en-US')
@@ -994,7 +1222,13 @@ class AccountMonitorWorker(BaseBrowserWorker):
                 del ACTIVE_DRIVERS[profile_id]
             if driver:
                 try:
-                    driver.quit()
+                    if 'profile_dir' in locals():
+                        self.hard_close_browser(driver, profile_dir)
+                    else:
+                        driver.quit()
                 except:
                     pass
+            # Clean cache bloat automatically
+            if 'profile_dir' in locals():
+                self.clean_cache_bloat(profile_dir)
             self.signals.finished.emit(self.profile['id'])
