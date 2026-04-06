@@ -1,0 +1,54 @@
+{
+    "branding": {
+        "tool_name": "FB Multi-Account Manager",
+        "support_number": "+923490098654",
+        "whatsapp_link": "https://wa.me/923490098654"
+    },
+    "selectors": {
+        "login": {
+            "email_field": "//input[@name='email']",
+            "pass_field": "//input[@name='pass']",
+            "login_btn": "//div[@aria-label='Log in' or @role='button'][@focusable='true']",
+            "checkpoint_indicator": "//*[contains(@href, 'checkpoint') or contains(text(), 'confirm')]"
+        },
+        "marketplace": {
+            "title": "//label[@aria-label='Title']//input",
+            "price": "//label[@aria-label='Price']//input",
+            "category_dropdown": "//label[@aria-label='Category']",
+            "condition_dropdown": "//label[@aria-label='Condition']",
+            "description": "//label[@aria-label='Description']//textarea",
+            "location_input": "//input[@aria-label='Location']",
+            "location_suggestion": "//ul[@role='listbox']//li[1]",
+            "image_input": "//input[@type='file' and contains(@accept, 'image')]",
+            "publish_btn": "//div[@aria-label='Publish' or @aria-label='Post']"
+        },
+        "messenger": {
+            "unread_dot": "//span[contains(@aria-label, 'unread')]",
+            "message_container": "//div[@role='main']//div[@aria-label='Messages']",
+            "reply_box": "//div[@aria-label='Message' or @role='textbox']"
+        }
+    },
+    "banned_uuids": [],
+    "api_version": "1.0.0",
+    "app_settings": {
+        "app_title": "MNA FB-AutoPilot PRO V1",
+        "support_whatsapp": "+923490098654",
+        "buy_now_link": "https://wa.me/923490098654?text=I%20want%20to%20buy%20a%20license",
+        "relist_interval_hours": 24
+    },
+    "security": {
+        "banned_uuids": [
+            "EXAMPLE-UUID-123-456",
+            "HACKER-PC-ID-999"
+        ],
+        "kill_switch_active": false,
+        "force_update_required": false
+    },
+    "cta_templates": [
+        "Hello {name}! For details about this service, please CALL directly at: {number}",
+        "Hi {name}, I'm busy right now. Please CALL my office at {number} for a faster response.",
+        "Greetings {name}. Our specialist is available. Kindly CALL {number} to book your service now.",
+        "Available! For price info and booking, please dial {number}. Looking forward to your call.",
+        "Hello! To assist you better, please call our dispatch number: {number}. We are active 24/7."
+    ]
+}

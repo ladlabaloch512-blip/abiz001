@@ -1,267 +1,275 @@
-/* Main Application Window */
+/* ==============================================================
+   INDUSTRIAL PREMIUM THEME
+   Dark Charcoal / Deep Blue Gradient with Glass-Morphism Elements
+============================================================== */
+
+/* Main Application Window & Base Settings */
 QMainWindow {
-    background-color: #0B0E11; /* Midnight Deep Charcoal */
-    color: #E2E8F0;
-    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background: qlineargradient(x1:0, y1:0, x2:1, y2:1, stop:0 #0B0E14, stop:1 #111827); /* Deep Charcoal to Dark Slate Blue */
+    color: #E5E7EB;
+    font-family: 'Segoe UI', 'Inter', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+QWidget {
+    background-color: transparent;
+    color: #E5E7EB;
 }
 
 /* Sidebar Navigation */
 #Sidebar {
-    background-color: #15191E; /* Dark Obsidian */
-    border-right: 1px solid #2D3139; /* Border Gray */
+    background-color: rgba(17, 24, 39, 0.7); /* Translucent Slate for Glass effect */
+    border-right: 1px solid rgba(255, 255, 255, 0.05);
+    border-radius: 0px;
 }
 
-/* Sidebar Buttons */
 #Sidebar QPushButton {
     background-color: transparent;
-    color: #A0AABF;
+    color: #9CA3AF;
     border: none;
     text-align: left;
-    padding: 12px 20px;
-    font-size: 14px;
-    font-weight: 500;
+    padding: 14px 24px;
+    font-size: 15px;
+    font-weight: 600;
     border-left: 4px solid transparent;
+    border-radius: 0px;
 }
 
 #Sidebar QPushButton:hover {
-    background-color: #1E232B;
-    color: #FFFFFF;
+    background-color: rgba(255, 255, 255, 0.03);
+    color: #F3F4F6;
 }
 
 #Sidebar QPushButton:checked {
-    background-color: #1E232B;
-    color: #6366F1; /* Vibrant Indigo */
-    border-left: 4px solid #6366F1;
-    font-weight: bold;
+    background-color: rgba(99, 102, 241, 0.1);
+    color: #818CF8; /* Vibrant Indigo */
+    border-left: 4px solid #818CF8;
 }
 
 /* Main Content Area */
 #ContentArea {
-    background-color: #0B0E11;
-}
-
-/* Rounded Cards */
-.QFrame#Card {
-    background-color: #15191E;
-    border-radius: 12px;
-    border: 1px solid #2D3139;
-    padding: 20px;
+    background-color: transparent;
 }
 
 /* Typography */
 QLabel {
-    color: #E2E8F0;
-    font-family: 'Segoe UI', sans-serif;
+    color: #E5E7EB;
+    font-family: 'Segoe UI', 'Inter', sans-serif;
 }
 
 #HeaderTitle {
-    font-size: 24px;
-    font-weight: bold;
+    font-size: 26px;
+    font-weight: 800;
     color: #FFFFFF;
+    letter-spacing: 0.5px;
 }
 
 #SubHeader {
-    font-size: 14px;
-    color: #A0AABF;
+    font-size: 15px;
+    color: #9CA3AF;
 }
 
-/* Inputs and Forms */
-QLineEdit {
-    background-color: #1E232B;
-    border: 1px solid #2D3139;
-    border-radius: 6px;
-    padding: 10px;
-    color: #FFFFFF;
-    font-size: 14px;
-}
-
-QLineEdit:focus {
-    border: 1px solid #6366F1;
-    background-color: #15191E;
-}
-
-/* Primary Action Buttons */
-QPushButton.PrimaryAction {
-    background-color: #6366F1;
-    color: #FFFFFF;
-    border: none;
-    border-radius: 6px;
-    padding: 12px 20px;
-    font-size: 14px;
-    font-weight: bold;
-}
-
-QPushButton.PrimaryAction:hover {
-    background-color: #4F46E5;
-}
-
-QPushButton.PrimaryAction:pressed {
-    background-color: #4338CA;
-}
-
-/* WhatsApp Buy Button */
-QPushButton#WhatsAppBtn {
-    background-color: #25D366;
-    color: #FFFFFF;
-    border: none;
-    border-radius: 6px;
-    padding: 15px;
-    font-size: 16px;
-    font-weight: bold;
-}
-
-QPushButton#WhatsAppBtn:hover {
-    background-color: #1DA851;
-}
-/* General Button Styling for Toolbar */
-QPushButton {
+/* Rounded Cards & Glass Panels */
+.QFrame#Card, .QFrame#Ribbon {
+    background-color: rgba(31, 41, 55, 0.6); /* Translucent Panel */
     border-radius: 12px;
-    font-weight: bold;
-    padding: 8px 12px;
-    background-color: #2D3139;
-    color: #E2E8F0;
-    border: none;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.QFrame#GlassCard {
+    background-color: rgba(17, 24, 39, 0.85); /* Darker Glass */
+    border-radius: 16px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    padding: 30px;
+}
+
+/* Inputs and Forms (10px Rounded Corners) */
+QLineEdit, QTextEdit, QComboBox {
+    background-color: rgba(15, 23, 42, 0.8);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 10px;
+    padding: 12px;
+    color: #F9FAFB;
+    font-size: 14px;
+}
+
+QLineEdit:focus, QTextEdit:focus, QComboBox:focus {
+    border: 1px solid #6366F1;
+    background-color: rgba(15, 23, 42, 0.95);
+}
+
+/* General Button Styling */
+QPushButton {
+    background-color: #374151;
+    color: #F3F4F6;
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    border-radius: 10px;
+    padding: 10px 16px;
+    font-size: 14px;
+    font-weight: 600;
 }
 
 QPushButton:hover {
+    background-color: #4B5563;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+QPushButton:pressed {
+    background-color: #1F2937;
+}
+
+/* Action Button Varieties */
+QPushButton.PrimaryAction, QPushButton.LaunchBtn {
+    background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #4F46E5, stop:1 #6366F1); /* Indigo Gradient */
+    color: #FFFFFF;
+    border: none;
+    border-radius: 10px;
+    padding: 12px 20px;
+    font-weight: bold;
+}
+
+QPushButton.PrimaryAction:hover, QPushButton.LaunchBtn:hover {
+    background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #4338CA, stop:1 #4F46E5);
+}
+
+QPushButton.DangerAction {
+    background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #DC2626, stop:1 #EF4444); /* Red Gradient */
+    color: #FFFFFF;
+    border: none;
+    border-radius: 10px;
+    font-weight: bold;
+}
+
+QPushButton.DangerAction:hover {
+    background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #B91C1C, stop:1 #DC2626);
+}
+
+/* Glowing UUID Label (Enterprise Locked Screen) */
+QLabel#GlowingUUID {
+    background-color: rgba(15, 23, 42, 0.9);
+    color: #34D399; /* Emerald Green */
+    font-family: 'Consolas', 'Courier New', monospace;
+    font-size: 18px;
+    font-weight: bold;
+    padding: 15px;
+    border-radius: 10px;
+    border: 1px solid #059669;
+    /* Simulate a glow using box-shadow conceptually by strong border */
+}
+
+/* WhatsApp Premium Button */
+QPushButton#WhatsAppBtn {
+    background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #16A34A, stop:1 #22C55E);
+    color: #FFFFFF;
+    border: none;
+    border-radius: 10px;
+    padding: 14px 24px;
+    font-size: 16px;
+    font-weight: bold;
+}
+QPushButton#WhatsAppBtn:hover {
+    background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #15803D, stop:1 #16A34A);
+}
+
+/* Copy Button */
+QPushButton#CopyBtn {
+    background-color: #1F2937;
+    color: #9CA3AF;
+    border: 1px solid #374151;
+    border-radius: 10px;
+    padding: 12px;
+}
+QPushButton#CopyBtn:hover {
     background-color: #374151;
+    color: #FFFFFF;
 }
 
 /* Dropdown Menus */
 QMenu {
-    background-color: #1E232B;
-    color: #E2E8F0;
-    border: 1px solid #2D3139;
+    background-color: rgba(31, 41, 55, 0.95);
+    color: #E5E7EB;
+    border: 1px solid rgba(255, 255, 255, 0.1);
     border-radius: 8px;
-    padding: 5px;
+    padding: 6px;
 }
-
 QMenu::item {
-    padding: 8px 25px;
-    border-radius: 4px;
+    padding: 10px 30px;
+    border-radius: 6px;
     font-weight: 500;
 }
-
 QMenu::item:selected {
-    background-color: #374151;
+    background-color: rgba(99, 102, 241, 0.2);
     color: #FFFFFF;
 }
-
 QMenu::separator {
     height: 1px;
-    background-color: #2D3139;
-    margin: 5px 10px;
+    background-color: rgba(255, 255, 255, 0.05);
+    margin: 6px 12px;
 }
 
-/* Additional Rules for Tables and Dialogs in styles.qss */
+/* Ribbon Dropdown Indicators */
+QPushButton.LaunchBtn::menu-indicator, QPushButton.PrimaryAction::menu-indicator, QPushButton.SecondaryAction::menu-indicator {
+    image: none;
+}
 
-/* Table View Styling */
+/* Modern Account Table */
 QTableWidget {
-    background-color: #15191E;
-    alternate-background-color: #1E232B;
-    color: #E2E8F0;
-    gridline-color: #2D3139;
-    border: 1px solid #2D3139;
-    border-radius: 8px;
-    selection-background-color: #374151;
+    background-color: rgba(17, 24, 39, 0.6);
+    alternate-background-color: rgba(31, 41, 55, 0.4);
+    color: #D1D5DB;
+    gridline-color: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 12px;
+    selection-background-color: rgba(99, 102, 241, 0.15);
 }
 
 QHeaderView::section {
-    background-color: #0B0E11;
-    color: #A0AABF;
-    padding: 8px;
+    background-color: rgba(17, 24, 39, 0.9);
+    color: #9CA3AF;
+    padding: 12px;
     border: none;
-    border-bottom: 1px solid #2D3139;
-    border-right: 1px solid #2D3139;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    border-right: 1px solid rgba(255, 255, 255, 0.05);
     font-weight: bold;
     font-size: 13px;
+    text-transform: uppercase;
 }
 
 /* Scrollbars */
 QScrollBar:vertical {
     border: none;
-    background: #0B0E11;
-    width: 12px;
-    margin: 0px 0px 0px 0px;
+    background: transparent;
+    width: 10px;
+    margin: 0px;
 }
 QScrollBar::handle:vertical {
-    background: #2D3139;
+    background: rgba(156, 163, 175, 0.3);
     min-height: 20px;
-    border-radius: 6px;
+    border-radius: 5px;
 }
 QScrollBar::handle:vertical:hover {
-    background: #4B5563;
+    background: rgba(156, 163, 175, 0.6);
 }
 QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {
     height: 0px;
 }
 
-/* Dialog and Form elements */
-QDialog {
-    background-color: #15191E;
-}
-
-QDialog QLabel {
-    color: #E2E8F0;
+/* Custom Status Chips in Table */
+QLabel.StatusChip_Active {
+    background-color: rgba(16, 185, 129, 0.1);
+    color: #10B981;
+    border: 1px solid rgba(16, 185, 129, 0.2);
+    border-radius: 10px;
+    padding: 4px 10px;
     font-weight: bold;
+    font-size: 12px;
 }
 
-QPushButton.DangerAction {
-    background-color: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #EF4444, stop:1 #DC2626);
-    color: #FFFFFF;
-    border: none;
-    border-radius: 12px;
-    padding: 8px 15px;
+QLabel.StatusChip_Warning {
+    background-color: rgba(245, 158, 11, 0.1);
+    color: #F59E0B;
+    border: 1px solid rgba(245, 158, 11, 0.2);
+    border-radius: 10px;
+    padding: 4px 10px;
     font-weight: bold;
-}
-QPushButton.DangerAction:hover {
-    background-color: #B91C1C;
-}
-
-QPushButton.LaunchBtn {
-    background-color: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #10B981, stop:1 #059669);
-    color: #FFFFFF;
-    border: none;
-    border-radius: 8px;
-    padding: 8px 15px;
-    font-weight: bold;
-}
-QPushButton.LaunchBtn:hover {
-    background-color: #047857;
-}
-
-QPushButton.LaunchBtn::menu-indicator {
-    image: none;
-}
-
-QPushButton.PrimaryAction {
-    background-color: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #6366F1, stop:1 #4F46E5);
-    color: #FFFFFF;
-    border: none;
-    border-radius: 8px;
-    padding: 8px 15px;
-    font-weight: bold;
-}
-QPushButton.PrimaryAction:hover {
-    background-color: #4338CA;
-}
-
-QPushButton.PrimaryAction::menu-indicator {
-    image: none;
-}
-
-QPushButton.SecondaryAction {
-    background-color: #374151;
-    color: #FFFFFF;
-    border: 1px solid #4B5563;
-    border-radius: 8px;
-    padding: 8px 15px;
-    font-weight: bold;
-}
-QPushButton.SecondaryAction:hover {
-    background-color: #4B5563;
-}
-
-QPushButton.SecondaryAction::menu-indicator {
-    image: none;
+    font-size: 12px;
 }
