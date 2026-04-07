@@ -358,6 +358,23 @@ class ProfileService:
         else:
             QMessageBox.warning(self.ui, "Not Running", "The profile must be actively running to export its live session cookies.\nPlease launch it first.")
 
+    def import_single_cookie(self, profile_data):
+        options = QFileDialog.Option.DontUseNativeDialog
+        file_path, _ = QFileDialog.getOpenFileName(self.ui, "Select Single JSON Cookie", "", "JSON Files (*.json)", options=options)
+
+        if not file_path:
+            return
+
+        target_dir = os.path.join(self.profiles_base, f"id_{profile_data['account_id']}")
+        os.makedirs(target_dir, exist_ok=True)
+
+        dst_path = os.path.join(target_dir, 'portable_session.json')
+        try:
+            shutil.copy(file_path, dst_path)
+            QMessageBox.information(self.ui, "Cookie Imported", "Successfully queued the selected session.\nIt will be injected automatically on the next launch.")
+        except Exception as e:
+            QMessageBox.critical(self.ui, "Import Error", f"Failed to copy cookie:\n{e}")
+
     # ==========================================
     # POWER FEATURE: ATTACH EXISTING CHROME FOLDERS
     # ==========================================

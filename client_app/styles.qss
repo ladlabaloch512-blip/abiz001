@@ -178,6 +178,10 @@ QPushButton#CopyBtn {
     border-radius: 10px;
     padding: 12px;
 }
+#DashboardRibbon:hover {
+    border: 1px solid rgba(0, 229, 255, 0.3);
+    background-color: rgba(40, 50, 65, 0.6);
+}
 QPushButton#CopyBtn:hover {
     background-color: #374151;
     color: #FFFFFF;
