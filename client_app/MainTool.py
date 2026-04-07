@@ -8,7 +8,7 @@ import setuptools
 # Add parent directory to sys.path so we can import shared_logic
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-from shared_logic.utils import get_app_dir
+from shared_logic.utils import get_app_dir, get_resource_path
 from core.config import init_config
 from core.database import init_db
 from ui.main_window import MainWindow
@@ -50,7 +50,7 @@ def main():
     splash.update_progress(55, "Loading UI Themes...")
     time.sleep(0.2)
     # 3. Load Stylesheet Early for Beautiful Dialogs
-    qss_path = os.path.join(app_dir, 'styles.qss')
+    qss_path = get_resource_path('client_app/styles.qss')
     if os.path.exists(qss_path):
         with open(qss_path, 'r', encoding='utf-8') as f:
             app.setStyleSheet(f.read())
