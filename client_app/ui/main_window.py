@@ -66,8 +66,10 @@ class MainWindow(QMainWindow):
         self.sidebar.setObjectName("Sidebar")
         self.sidebar.setFixedWidth(250)
         layout = QVBoxLayout(self.sidebar)
+        layout.setContentsMargins(15, 20, 15, 20)
+        layout.setSpacing(15)
 
-        # HW Monitor (Pillar 7)
+        # HW Monitor
         self.hw_monitor = HardwareMonitorWidget()
         layout.addWidget(self.hw_monitor)
 
@@ -77,30 +79,49 @@ class MainWindow(QMainWindow):
         sidebar_btn_style = """
             QPushButton {
                 background-color: transparent;
-                color: #9CA3AF;
+                color: #A0AABF;
                 border: none;
                 text-align: left;
-                padding: 14px 24px;
-                font-size: 15px;
-                font-weight: 600;
-                border-left: 4px solid transparent;
-                border-radius: 0px;
+                padding: 12px 16px;
+                font-size: 14px;
+                font-weight: 500;
+                border-radius: 8px;
             }
             QPushButton:hover {
-                background-color: rgba(255, 255, 255, 0.05);
-                color: #F3F4F6;
+                background-color: #1A1E24;
+                color: #FFFFFF;
+            }
+            QPushButton:checked {
+                background-color: #1A1E24;
+                color: #FFFFFF;
             }
         """
+
         btn_dash = QPushButton("📊 Dashboard")
         btn_dash.setStyleSheet(sidebar_btn_style)
+        btn_dash.setCheckable(True)
+        btn_dash.setChecked(True)
         btn_dash.clicked.connect(lambda: self.stacked_widget.setCurrentIndex(0))
+
         btn_msg = QPushButton("💬 Messenger Hub")
         btn_msg.setStyleSheet(sidebar_btn_style)
-        # Placeholder for full messenger hub view, for now it can trigger the bulk dispatch
+        btn_msg.setCheckable(True)
         btn_msg.clicked.connect(lambda: QMessageBox.information(self, "Hub", "Use the 'Quick Actions -> Messenger Pulse' ribbon to dispatch tasks."))
+
         btn_set = QPushButton("⚙️ Settings")
         btn_set.setStyleSheet(sidebar_btn_style)
+        btn_set.setCheckable(True)
         btn_set.clicked.connect(lambda: self.stacked_widget.setCurrentIndex(1))
+
+        # Ensure mutually exclusive buttons
+        def _update_nav(btn):
+            btn_dash.setChecked(btn == btn_dash)
+            btn_msg.setChecked(btn == btn_msg)
+            btn_set.setChecked(btn == btn_set)
+
+        btn_dash.clicked.connect(lambda: _update_nav(btn_dash))
+        btn_msg.clicked.connect(lambda: _update_nav(btn_msg))
+        btn_set.clicked.connect(lambda: _update_nav(btn_set))
 
         layout.addWidget(btn_dash)
         layout.addWidget(btn_msg)
@@ -115,27 +136,25 @@ class MainWindow(QMainWindow):
         ribbon_header.setStyleSheet("font-weight: bold; font-size: 18px; color: #FFFFFF; padding-bottom: 5px;")
         layout.addWidget(ribbon_header)
 
-        # 1. Glass-morphism Dashboard Control Center (HBox for horizontal layout)
-        ribbon_frame = QFrame()
-        ribbon_frame.setObjectName("DashboardRibbon")
-        ribbon_layout = QHBoxLayout(ribbon_frame)
-        ribbon_layout.setContentsMargins(15, 15, 15, 15)
-        ribbon_layout.setSpacing(20)
+        # Ribbon Layout (Actions, Migration, Session, Tools)
+        ribbon_layout = QHBoxLayout()
+        ribbon_layout.setContentsMargins(0, 0, 0, 0)
+        ribbon_layout.setSpacing(15)
 
         main_btn_style = """
             QPushButton {
-                background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #1E293B, stop:1 #0F172A);
-                border: 1px solid rgba(255, 255, 255, 0.15);
+                background-color: #1A1E24;
+                border: 1px solid #2D3139;
                 border-radius: 8px;
-                padding: 12px 20px;
-                font-weight: 600;
-                font-size: 14px;
-                color: #F8FAFC;
-                min-width: 130px;
+                padding: 10px 20px;
+                font-weight: 500;
+                font-size: 13px;
+                color: #FFFFFF;
+                min-width: 120px;
             }
             QPushButton:hover {
-                background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #293850, stop:1 #1E293B);
-                border: 1px solid rgba(0, 229, 255, 0.4);
+                background-color: #2D3139;
+                border: 1px solid rgba(0, 229, 255, 0.3);
             }
             QPushButton::menu-indicator {
                 image: none;
@@ -161,7 +180,10 @@ class MainWindow(QMainWindow):
 
         # 2. 📂 Migration Menu
         btn_data = QPushButton("📂 Migration ▾")
-        btn_data.setStyleSheet(main_btn_style)
+        # Custom style for Migration to show it as selected/active like in the image
+        migration_style = main_btn_style.replace("background-color: #1A1E24;", "background-color: #1F252E;")
+        migration_style = migration_style.replace("border: 1px solid #2D3139;", "border: 1px solid rgba(0, 229, 255, 0.4);")
+        btn_data.setStyleSheet(migration_style)
         menu_data = QMenu(btn_data)
         menu_data.addAction("📥 Import via Backup (ZIP)").triggered.connect(self.profile_service.execute_import_backup)
         menu_data.addAction("📤 Export Selected (ZIP)").triggered.connect(lambda: self.profile_service.execute_bulk_export(self._get_selected_ids()))
@@ -198,18 +220,60 @@ class MainWindow(QMainWindow):
         ribbon_layout.addWidget(btn_tools)
         ribbon_layout.addStretch()
 
-        layout.addWidget(ribbon_frame)
+        layout.addLayout(ribbon_layout)
+        layout.addSpacing(10)
 
-        # 2. Modern Account Table
+        # 2. Modern Account Table Container
+        table_container = QWidget()
+        table_container.setStyleSheet("background-color: #FFFFFF; border-radius: 8px;")
+        table_layout = QVBoxLayout(table_container)
+        table_layout.setContentsMargins(0, 0, 0, 0)
+        table_layout.setSpacing(0)
+
         self.table = QTableWidget()
         self.table.setColumnCount(7)
         self.table.setShowGrid(False)
         self.table.setFocusPolicy(Qt.FocusPolicy.NoFocus)
+        self.table.setStyleSheet("""
+            QTableWidget {
+                background-color: #FFFFFF;
+                color: #333333;
+                border: none;
+                border-radius: 8px;
+            }
+            QTableWidget::item {
+                border-bottom: 1px solid #F0F0F0;
+                padding: 5px;
+            }
+            QHeaderView::section {
+                background-color: #FFFFFF;
+                color: #333333;
+                padding: 10px;
+                border: none;
+                border-bottom: 1px solid #E0E0E0;
+                font-weight: normal;
+                font-size: 13px;
+            }
+            QScrollBar:vertical {
+                border: none;
+                background: #F0F0F0;
+                width: 8px;
+                border-radius: 4px;
+            }
+            QScrollBar::handle:vertical {
+                background: #CCCCCC;
+                border-radius: 4px;
+            }
+        """)
 
-        # Add Select All Checkbox to Header
+        # Add Select All Checkbox to Header area above table
+        chk_layout = QHBoxLayout()
+        chk_layout.setContentsMargins(10, 10, 10, 0)
         self.select_all_chk = QCheckBox("Select All")
-        self.select_all_chk.setStyleSheet("color: #9CA3AF; font-weight: bold;")
+        self.select_all_chk.setStyleSheet("color: #333333; font-size: 12px;")
         self.select_all_chk.stateChanged.connect(self._toggle_all_rows)
+        chk_layout.addWidget(self.select_all_chk)
+        chk_layout.addStretch()
 
         self.table.setHorizontalHeaderLabels(["", "Profile Name", "Status", "Group", "Proxy", "Email", "⚙️ Manage"])
         header = self.table.horizontalHeader()
@@ -217,13 +281,11 @@ class MainWindow(QMainWindow):
         header.setSectionResizeMode(0, QHeaderView.ResizeMode.ResizeToContents)
         header.setSectionResizeMode(6, QHeaderView.ResizeMode.ResizeToContents)
 
-        # Inject the Select All Checkbox directly over the first header
-        chk_layout = QHBoxLayout()
-        chk_layout.addWidget(self.select_all_chk)
-        chk_layout.addStretch()
-        layout.addLayout(chk_layout)
+        # Add checkbox layout before table inside the container
+        table_layout.addLayout(chk_layout)
+        table_layout.addWidget(self.table)
 
-        layout.addWidget(self.table)
+        layout.addWidget(table_container)
 
     def _build_settings(self):
         layout = QVBoxLayout(self.settings_screen)
@@ -302,15 +364,16 @@ class MainWindow(QMainWindow):
             btn_manage = QPushButton("⚙️ Manage ▾")
             btn_manage.setStyleSheet("""
                 QPushButton {
-                    background-color: transparent;
+                    background-color: #FFFFFF;
                     color: #00E5FF;
-                    border: 1px solid rgba(0, 229, 255, 0.3);
+                    border: 1px solid #E0E0E0;
                     border-radius: 4px;
                     padding: 4px 8px;
                     font-size: 12px;
                 }
                 QPushButton:hover {
-                    background-color: rgba(0, 229, 255, 0.1);
+                    background-color: #F8F8F8;
+                    border: 1px solid #00E5FF;
                 }
                 QPushButton::menu-indicator {
                     image: none;

@@ -97,6 +97,12 @@ class LoadingScreen(QSplashScreen):
         # Bottom padding
         layout.addSpacing(10)
 
+        # Center the splash screen on the primary screen
+        screen = QApplication.primaryScreen().geometry()
+        x = (screen.width() - self.width()) // 2
+        y = (screen.height() - self.height()) // 2
+        self.move(x, y)
+
     def update_progress(self, value, message):
         self.progress_bar.setValue(value)
         self.status_label.setText(message)
