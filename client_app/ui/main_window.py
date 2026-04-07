@@ -156,7 +156,7 @@ class MainWindow(QMainWindow):
         menu_session = QMenu(btn_session)
         menu_session.addAction("📁 Import Cookie Folder").triggered.connect(self.profile_service.import_via_cookies)
         menu_session.addAction("📤 Bulk Export to JSON").triggered.connect(lambda: self.profile_service.execute_bulk_export(self._get_selected_ids(), json_only=True))
-        menu_session.addAction("📥 Bulk Import from JSON Archive").triggered.connect(self.profile_service.bulk_import_from_json_archive)
+        menu_session.addAction("📥 Bulk Import from JSON Archive").triggered.connect(self.profile_service.execute_import_backup)
         btn_session.setMenu(menu_session)
 
         # 4. ⚙️ Tools Menu
