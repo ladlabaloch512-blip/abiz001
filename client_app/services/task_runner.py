@@ -127,10 +127,14 @@ class SequentialManager(QObject):
             return
 
         profile = self.queue.pop(0)
-        self.current_worker = BrowserTaskWorker(profile, self.app_dir)
-        self.current_worker.signals.finished.connect(self._on_worker_finished)
 
-        # NOTE: Connect UI signals externally via lambda or a UI manager function passing this manager
+        if hasattr(self, '_create_worker') and self._create_worker:
+            self.current_worker = self._create_worker(profile)
+        else:
+            self.current_worker = BrowserTaskWorker(profile, self.app_dir)
+
+        # Hook up the sequential completion chain
+        self.current_worker.signals.finished.connect(self._on_worker_finished)
 
         self.threadpool.start(self.current_worker)
 

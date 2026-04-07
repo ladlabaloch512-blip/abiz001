@@ -226,12 +226,20 @@ QTableWidget {
     selection-background-color: rgba(99, 102, 241, 0.15);
 }
 
+QTableWidget::item {
+    border-bottom: 1px solid rgba(255, 255, 255, 0.02);
+}
+
+QHeaderView {
+    background-color: transparent;
+}
+
 QHeaderView::section {
-    background-color: rgba(17, 24, 39, 0.9);
+    background-color: #0F172A;
     color: #9CA3AF;
     padding: 12px;
     border: none;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    border-bottom: 2px solid rgba(0, 229, 255, 0.2);
     border-right: 1px solid rgba(255, 255, 255, 0.05);
     font-weight: bold;
     font-size: 13px;

@@ -74,12 +74,32 @@ class MainWindow(QMainWindow):
         layout.addStretch()
 
         # Navigation
+        sidebar_btn_style = """
+            QPushButton {
+                background-color: transparent;
+                color: #9CA3AF;
+                border: none;
+                text-align: left;
+                padding: 14px 24px;
+                font-size: 15px;
+                font-weight: 600;
+                border-left: 4px solid transparent;
+                border-radius: 0px;
+            }
+            QPushButton:hover {
+                background-color: rgba(255, 255, 255, 0.05);
+                color: #F3F4F6;
+            }
+        """
         btn_dash = QPushButton("📊 Dashboard")
+        btn_dash.setStyleSheet(sidebar_btn_style)
         btn_dash.clicked.connect(lambda: self.stacked_widget.setCurrentIndex(0))
         btn_msg = QPushButton("💬 Messenger Hub")
+        btn_msg.setStyleSheet(sidebar_btn_style)
         # Placeholder for full messenger hub view, for now it can trigger the bulk dispatch
         btn_msg.clicked.connect(lambda: QMessageBox.information(self, "Hub", "Use the 'Quick Actions -> Messenger Pulse' ribbon to dispatch tasks."))
         btn_set = QPushButton("⚙️ Settings")
+        btn_set.setStyleSheet(sidebar_btn_style)
         btn_set.clicked.connect(lambda: self.stacked_widget.setCurrentIndex(1))
 
         layout.addWidget(btn_dash)
@@ -90,35 +110,35 @@ class MainWindow(QMainWindow):
         layout = QVBoxLayout(self.dashboard_screen)
         layout.setContentsMargins(15, 15, 15, 15)
 
-        # 1. Glass-morphism Dashboard Control Center (VBox)
-        ribbon_frame = QFrame()
-        ribbon_frame.setObjectName("DashboardRibbon")
-        ribbon_layout = QVBoxLayout(ribbon_frame)
-        ribbon_layout.setSpacing(10)
-
         # Header for the ribbon
         ribbon_header = QLabel("Dashboard Control Center")
-        ribbon_header.setStyleSheet("font-weight: bold; font-size: 16px; color: #00E5FF; padding-bottom: 5px;")
-        ribbon_layout.addWidget(ribbon_header)
+        ribbon_header.setStyleSheet("font-weight: bold; font-size: 18px; color: #FFFFFF; padding-bottom: 5px;")
+        layout.addWidget(ribbon_header)
 
-        # Inner layout for buttons
-        btn_layout = QHBoxLayout()
-        btn_layout.setSpacing(15)
+        # 1. Glass-morphism Dashboard Control Center (HBox for horizontal layout)
+        ribbon_frame = QFrame()
+        ribbon_frame.setObjectName("DashboardRibbon")
+        ribbon_layout = QHBoxLayout(ribbon_frame)
+        ribbon_layout.setContentsMargins(15, 15, 15, 15)
+        ribbon_layout.setSpacing(20)
 
         main_btn_style = """
             QPushButton {
                 background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #1E293B, stop:1 #0F172A);
-                border: 1px solid rgba(255, 255, 255, 0.1);
+                border: 1px solid rgba(255, 255, 255, 0.15);
                 border-radius: 8px;
-                padding: 10px 15px;
-                font-weight: bold;
+                padding: 12px 20px;
+                font-weight: 600;
+                font-size: 14px;
                 color: #F8FAFC;
+                min-width: 130px;
             }
             QPushButton:hover {
                 background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #293850, stop:1 #1E293B);
                 border: 1px solid rgba(0, 229, 255, 0.4);
-                margin-top: -2px;
-                margin-bottom: 2px;
+            }
+            QPushButton::menu-indicator {
+                image: none;
             }
         """
 
@@ -169,7 +189,7 @@ class MainWindow(QMainWindow):
         menu_tools.addSeparator()
         menu_tools.addAction("👥 Update Group").triggered.connect(lambda: self.profile_service.execute_bulk_group_update(self._get_selected_ids()))
         menu_tools.addAction("➕ Create Group").triggered.connect(self.profile_service.add_new_group)
-        menu_tools.addAction("🗑️ Delete Group").triggered.connect(lambda: self.profile_service.delete_selected_group("TBD")) # Fixed later via sidebar
+        menu_tools.addAction("🗑️ Delete Group").triggered.connect(self.profile_service._prompt_delete_group)
         btn_tools.setMenu(menu_tools)
 
         ribbon_layout.addWidget(btn_actions)
@@ -183,9 +203,12 @@ class MainWindow(QMainWindow):
         # 2. Modern Account Table
         self.table = QTableWidget()
         self.table.setColumnCount(7)
+        self.table.setShowGrid(False)
+        self.table.setFocusPolicy(Qt.FocusPolicy.NoFocus)
 
         # Add Select All Checkbox to Header
-        self.select_all_chk = QCheckBox("[x]")
+        self.select_all_chk = QCheckBox("Select All")
+        self.select_all_chk.setStyleSheet("color: #9CA3AF; font-weight: bold;")
         self.select_all_chk.stateChanged.connect(self._toggle_all_rows)
 
         self.table.setHorizontalHeaderLabels(["", "Profile Name", "Status", "Group", "Proxy", "Email", "⚙️ Manage"])
@@ -195,7 +218,11 @@ class MainWindow(QMainWindow):
         header.setSectionResizeMode(6, QHeaderView.ResizeMode.ResizeToContents)
 
         # Inject the Select All Checkbox directly over the first header
-        layout.addWidget(self.select_all_chk)
+        chk_layout = QHBoxLayout()
+        chk_layout.addWidget(self.select_all_chk)
+        chk_layout.addStretch()
+        layout.addLayout(chk_layout)
+
         layout.addWidget(self.table)
 
     def _build_settings(self):
@@ -272,7 +299,23 @@ class MainWindow(QMainWindow):
             self.table.setItem(row, 5, QTableWidgetItem(p.get('email', 'None')))
 
             # Row Manage Button
-            btn_manage = QPushButton("⚙️ Manage")
+            btn_manage = QPushButton("⚙️ Manage ▾")
+            btn_manage.setStyleSheet("""
+                QPushButton {
+                    background-color: transparent;
+                    color: #00E5FF;
+                    border: 1px solid rgba(0, 229, 255, 0.3);
+                    border-radius: 4px;
+                    padding: 4px 8px;
+                    font-size: 12px;
+                }
+                QPushButton:hover {
+                    background-color: rgba(0, 229, 255, 0.1);
+                }
+                QPushButton::menu-indicator {
+                    image: none;
+                }
+            """)
             menu = QMenu(btn_manage)
 
             menu.addAction("🔑 Auto-Login This ID").triggered.connect(lambda checked, prof=p: self._launch_single(prof, task="Auto-Login"))

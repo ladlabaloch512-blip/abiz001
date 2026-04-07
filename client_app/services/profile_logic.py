@@ -309,6 +309,11 @@ class ProfileService:
             delete_group(self.app_dir, group_name)
             self.ui.load_table_data()
 
+    def _prompt_delete_group(self):
+        text, ok = QInputDialog.getText(self.ui, 'Delete Group', 'Enter Group Name to delete:')
+        if ok and text:
+            self.delete_selected_group(text.strip())
+
     def execute_bulk_group_update(self, selected_ids: list):
         if not selected_ids:
             QMessageBox.warning(self.ui, "Selection Error", "Please select at least one profile.")
