@@ -1,0 +1,275 @@
+/* ==============================================================
+   INDUSTRIAL PREMIUM THEME
+   Dark Charcoal / Deep Blue Gradient with Glass-Morphism Elements
+============================================================== */
+
+/* Main Application Window & Base Settings */
+QMainWindow {
+    background: qlineargradient(x1:0, y1:0, x2:1, y2:1, stop:0 #0B0E14, stop:1 #111827); /* Deep Charcoal to Dark Slate Blue */
+    color: #E5E7EB;
+    font-family: 'Segoe UI', 'Inter', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+QWidget {
+    background-color: transparent;
+    color: #E5E7EB;
+}
+
+/* Sidebar Navigation */
+#Sidebar {
+    background-color: rgba(17, 24, 39, 0.7); /* Translucent Slate for Glass effect */
+    border-right: 1px solid rgba(255, 255, 255, 0.05);
+    border-radius: 0px;
+}
+
+#Sidebar QPushButton {
+    background-color: transparent;
+    color: #9CA3AF;
+    border: none;
+    text-align: left;
+    padding: 14px 24px;
+    font-size: 15px;
+    font-weight: 600;
+    border-left: 4px solid transparent;
+    border-radius: 0px;
+}
+
+#Sidebar QPushButton:hover {
+    background-color: rgba(255, 255, 255, 0.03);
+    color: #F3F4F6;
+}
+
+#Sidebar QPushButton:checked {
+    background-color: rgba(99, 102, 241, 0.1);
+    color: #818CF8; /* Vibrant Indigo */
+    border-left: 4px solid #818CF8;
+}
+
+/* Main Content Area */
+#ContentArea {
+    background-color: transparent;
+}
+
+/* Typography */
+QLabel {
+    color: #E5E7EB;
+    font-family: 'Segoe UI', 'Inter', sans-serif;
+}
+
+#HeaderTitle {
+    font-size: 26px;
+    font-weight: 800;
+    color: #FFFFFF;
+    letter-spacing: 0.5px;
+}
+
+#SubHeader {
+    font-size: 15px;
+    color: #9CA3AF;
+}
+
+/* Rounded Cards & Glass Panels */
+.QFrame#Card, .QFrame#Ribbon {
+    background-color: rgba(31, 41, 55, 0.6); /* Translucent Panel */
+    border-radius: 12px;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.QFrame#GlassCard {
+    background-color: rgba(17, 24, 39, 0.85); /* Darker Glass */
+    border-radius: 16px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    padding: 30px;
+}
+
+/* Inputs and Forms (10px Rounded Corners) */
+QLineEdit, QTextEdit, QComboBox {
+    background-color: rgba(15, 23, 42, 0.8);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 10px;
+    padding: 12px;
+    color: #F9FAFB;
+    font-size: 14px;
+}
+
+QLineEdit:focus, QTextEdit:focus, QComboBox:focus {
+    border: 1px solid #6366F1;
+    background-color: rgba(15, 23, 42, 0.95);
+}
+
+/* General Button Styling */
+QPushButton {
+    background-color: #374151;
+    color: #F3F4F6;
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    border-radius: 10px;
+    padding: 10px 16px;
+    font-size: 14px;
+    font-weight: 600;
+}
+
+QPushButton:hover {
+    background-color: #4B5563;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+QPushButton:pressed {
+    background-color: #1F2937;
+}
+
+/* Action Button Varieties */
+QPushButton.PrimaryAction, QPushButton.LaunchBtn {
+    background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #4F46E5, stop:1 #6366F1); /* Indigo Gradient */
+    color: #FFFFFF;
+    border: none;
+    border-radius: 10px;
+    padding: 12px 20px;
+    font-weight: bold;
+}
+
+QPushButton.PrimaryAction:hover, QPushButton.LaunchBtn:hover {
+    background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #4338CA, stop:1 #4F46E5);
+}
+
+QPushButton.DangerAction {
+    background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #DC2626, stop:1 #EF4444); /* Red Gradient */
+    color: #FFFFFF;
+    border: none;
+    border-radius: 10px;
+    font-weight: bold;
+}
+
+QPushButton.DangerAction:hover {
+    background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #B91C1C, stop:1 #DC2626);
+}
+
+/* Glowing UUID Label (Enterprise Locked Screen) */
+QLabel#GlowingUUID {
+    background-color: rgba(15, 23, 42, 0.9);
+    color: #34D399; /* Emerald Green */
+    font-family: 'Consolas', 'Courier New', monospace;
+    font-size: 18px;
+    font-weight: bold;
+    padding: 15px;
+    border-radius: 10px;
+    border: 1px solid #059669;
+    /* Simulate a glow using box-shadow conceptually by strong border */
+}
+
+/* WhatsApp Premium Button */
+QPushButton#WhatsAppBtn {
+    background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #16A34A, stop:1 #22C55E);
+    color: #FFFFFF;
+    border: none;
+    border-radius: 10px;
+    padding: 14px 24px;
+    font-size: 16px;
+    font-weight: bold;
+}
+QPushButton#WhatsAppBtn:hover {
+    background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #15803D, stop:1 #16A34A);
+}
+
+/* Copy Button */
+QPushButton#CopyBtn {
+    background-color: #1F2937;
+    color: #9CA3AF;
+    border: 1px solid #374151;
+    border-radius: 10px;
+    padding: 12px;
+}
+#DashboardRibbon:hover {
+    border: 1px solid rgba(0, 229, 255, 0.3);
+    background-color: rgba(40, 50, 65, 0.6);
+}
+QPushButton#CopyBtn:hover {
+    background-color: #374151;
+    color: #FFFFFF;
+}
+
+/* Dropdown Menus */
+QMenu {
+    background-color: rgba(31, 41, 55, 0.95);
+    color: #E5E7EB;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 8px;
+    padding: 6px;
+}
+QMenu::item {
+    padding: 10px 30px;
+    border-radius: 6px;
+    font-weight: 500;
+}
+QMenu::item:selected {
+    background-color: rgba(99, 102, 241, 0.2);
+    color: #FFFFFF;
+}
+QMenu::separator {
+    height: 1px;
+    background-color: rgba(255, 255, 255, 0.05);
+    margin: 6px 12px;
+}
+
+/* Ribbon Dropdown Indicators */
+QPushButton.LaunchBtn::menu-indicator, QPushButton.PrimaryAction::menu-indicator, QPushButton.SecondaryAction::menu-indicator {
+    image: none;
+}
+
+/* QMessageBox overrides for Light Theme */
+QMessageBox {
+    background-color: #FFFFFF;
+    color: #333333;
+}
+QMessageBox QLabel {
+    color: #333333;
+}
+QMessageBox QPushButton {
+    background-color: #F0F0F0;
+    color: #333333;
+    border: 1px solid #CCCCCC;
+}
+QMessageBox QPushButton:hover {
+    background-color: #E0E0E0;
+    border: 1px solid #999999;
+}
+
+/* Modern Account Table handled locally in python, ensuring we don't override */
+/* Scrollbars */
+QScrollBar:vertical {
+    border: none;
+    background: transparent;
+    width: 10px;
+    margin: 0px;
+}
+QScrollBar::handle:vertical {
+    background: rgba(156, 163, 175, 0.3);
+    min-height: 20px;
+    border-radius: 5px;
+}
+QScrollBar::handle:vertical:hover {
+    background: rgba(156, 163, 175, 0.6);
+}
+QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {
+    height: 0px;
+}
+
+/* Custom Status Chips in Table */
+QLabel.StatusChip_Active {
+    background-color: rgba(16, 185, 129, 0.1);
+    color: #10B981;
+    border: 1px solid rgba(16, 185, 129, 0.2);
+    border-radius: 10px;
+    padding: 4px 10px;
+    font-weight: bold;
+    font-size: 12px;
+}
+
+QLabel.StatusChip_Warning {
+    background-color: rgba(245, 158, 11, 0.1);
+    color: #F59E0B;
+    border: 1px solid rgba(245, 158, 11, 0.2);
+    border-radius: 10px;
+    padding: 4px 10px;
+    font-weight: bold;
+    font-size: 12px;
+}

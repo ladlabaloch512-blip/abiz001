@@ -1,0 +1,30 @@
+FB Multi-Account Manager - Enterprise Refactored Directory Tree
+
+├── main.py (Entry point. Handles License, Kill-Switch, and loads MainWindow)
+├── styles.qss (Glass-morphism Dark Slate Premium CSS)
+├── core/
+│   ├── __init__.py
+│   ├── config.py (Remote Config Loader, Kill-Switch logic, WhatsApp/Discord Webhooks)
+│   ├── database.py (SQLite schema for Profiles, Groups, Global_Cache)
+│   └── security.py (License/UUID verification logic)
+├── ui/
+│   ├── __init__.py
+│   ├── main_window.py (UI structure, 4-tier Ribbon, Modern Account Table)
+│   └── widgets.py (Custom widgets like Hardware Monitor, Toasts, Locked Screen Card)
+├── automation/
+│   ├── __init__.py
+│   ├── browser_engine.py (UC launch logic, stealth injection, portable_session.json injection, zero-resource killer)
+│   ├── marketplace_poster.py (Marketplace PPC logic, Image metadata scrubber & renamer)
+│   └── messenger_pulse.py (Headless rotating pool for lead routing, Discord notifications)
+├── services/
+│   ├── __init__.py
+│   ├── task_runner.py (BrowserTaskWorker, SequentialManager, Queue Logic)
+│   ├── profile_logic.py (Handles ALL 10+ legacy logic methods: import, export, delete, create, attach existing)
+│   └── sync_service.py (Drive backup/restore logic placeholders)
+├── shared_logic/
+│   ├── __init__.py
+│   └── utils.py (Path resolution, helper functions)
+├── keygen_app/
+│   └── KeyGenTool.py
+├── requirements.txt
+└── build.bat
