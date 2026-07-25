@@ -10,15 +10,22 @@ require_once __DIR__ . '/includes/header.php';
         <canvas id="water-ripple-canvas"></canvas>
     </div>
 
-    <div class="container">
-        <div class="hero-content reveal">
-            <h1 class="hero-title">Experience the <br><span style="color: var(--color-secondary);">Purest</span> Drinking Water.</h1>
-            <p style="font-size: 1.25rem; margin-bottom: 2rem; max-width: 500px; color: var(--text-main);">
-                Hydrate your life with our premium, carefully purified water. Delivered fresh to your home or office.
-            </p>
-            <div style="display: flex; gap: 1rem; flex-wrap: wrap;">
-                <a href="products.php" class="btn btn-primary">View Products</a>
-                <a href="contact.php" class="btn btn-outline">Order Now</a>
+    <div class="container" style="position: relative; z-index: 10;">
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: var(--spacing-lg); align-items: center;">
+            <div class="hero-content reveal">
+                <h1 class="hero-title">Experience the <br><span style="color: var(--color-secondary);">Purest</span> Drinking Water.</h1>
+                <p style="font-size: 1.25rem; margin-bottom: 2rem; max-width: 500px; color: var(--text-main);">
+                    Hydrate your life with our premium, carefully purified water. Delivered fresh to your home or office.
+                </p>
+                <div style="display: flex; gap: 1rem; flex-wrap: wrap;">
+                    <a href="products.php" class="btn btn-primary">View Products</a>
+                    <a href="contact.php" class="btn btn-outline">Order Now</a>
+                </div>
+            </div>
+
+            <div class="hero-image-wrapper reveal delay-200" style="text-align: center; display: none;">
+                <!-- Fallback to display block on desktop via CSS -->
+                <img src="assets/images/banners/hero-bottles.svg" alt="Premium Bottles" class="animate-float" style="max-width: 100%; height: auto; display: block; margin: 0 auto; filter: drop-shadow(0 20px 30px rgba(0,0,0,0.1));">
             </div>
         </div>
     </div>

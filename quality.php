@@ -10,6 +10,10 @@ require_once __DIR__ . '/includes/header.php';
             <p>Discover the journey of every drop, from source to bottle.</p>
         </div>
 
+        <div class="reveal delay-100" style="max-width: 900px; margin: 0 auto 4rem auto; border-radius: var(--border-radius-xl); overflow: hidden; box-shadow: var(--shadow-lg);">
+            <img src="assets/images/placeholders/quality-hero.svg" alt="Quality Process Certification" style="width: 100%; display: block;">
+        </div>
+
         <div style="max-width: 800px; margin: 0 auto;">
 
             <div class="reveal" style="display: flex; gap: var(--spacing-md); margin-bottom: var(--spacing-lg); background: var(--bg-main); padding: var(--spacing-md); border-radius: var(--border-radius-lg); box-shadow: var(--shadow-sm);">

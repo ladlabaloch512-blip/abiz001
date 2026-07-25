@@ -167,6 +167,16 @@
     width: 180px; /* Adjust based on actual logo */
 }
 
+.logo-text-fallback {
+    font-family: var(--font-heading);
+    font-size: 1.5rem;
+    font-weight: 800;
+    color: var(--color-primary);
+    letter-spacing: -0.5px;
+    display: block;
+    white-space: nowrap;
+}
+
 .nav-menu {
     display: flex;
     align-items: center;
@@ -205,7 +215,7 @@
 .site-footer {
     background: var(--color-primary);
     color: var(--text-light);
-    padding: var(--spacing-lg) 0 var(--spacing-sm);
+    padding: var(--spacing-md) 0 var(--spacing-xs);
     position: relative;
     overflow: hidden;
 }
@@ -214,12 +224,12 @@
     display: grid;
     grid-template-columns: 2fr 1fr 1fr 1.5fr;
     gap: var(--spacing-md);
-    margin-bottom: var(--spacing-md);
+    margin-bottom: var(--spacing-sm);
 }
 
 .footer-col h4 {
     color: var(--text-light);
-    margin-bottom: var(--spacing-md);
+    margin-bottom: var(--spacing-sm);
 }
 
 .footer-col p, .footer-link {
@@ -258,10 +268,17 @@
 
 .footer-bottom {
     text-align: center;
-    padding-top: var(--spacing-md);
+    padding-top: var(--spacing-sm);
     border-top: 1px solid rgba(255, 255, 255, 0.1);
     color: rgba(255, 255, 255, 0.5);
     font-size: var(--text-small);
+}
+
+.footer-icon-text {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: var(--spacing-xs);
 }
 
 /* --- Hero Banner Component --- */
@@ -288,6 +305,10 @@
     position: relative;
     z-index: 10;
     max-width: 650px;
+}
+
+.hero-image-wrapper {
+    display: block !important;
 }
 
 .hero-title {
@@ -400,5 +421,10 @@
     .hero-content {
         text-align: center;
         margin: 0 auto;
+        grid-column: 1 / -1;
+    }
+
+    .hero-image-wrapper {
+        display: none !important;
     }
 }

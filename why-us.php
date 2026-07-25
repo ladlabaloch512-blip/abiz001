@@ -10,6 +10,10 @@ require_once __DIR__ . '/includes/header.php';
             <p>Why thousands of households and businesses trust <?php echo htmlspecialchars($brand['name']); ?>.</p>
         </div>
 
+        <div class="reveal delay-100" style="max-width: 800px; margin: 0 auto 4rem auto; border-radius: var(--border-radius-xl); overflow: hidden; box-shadow: var(--shadow-lg);">
+            <img src="assets/images/placeholders/why-us-hero.svg" alt="Why Choose Us" style="width: 100%; display: block;">
+        </div>
+
         <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: var(--spacing-lg); margin-top: var(--spacing-lg);">
 
             <div class="card reveal delay-100">

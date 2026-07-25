@@ -17,8 +17,8 @@ require_once __DIR__ . '/includes/header.php';
                 <p>Through continuous innovation in our purification processes and strict adherence to international quality standards, we ensure every bottle that leaves our facility is a testament to purity.</p>
             </div>
             <div class="reveal delay-200">
-                <div style="background: var(--color-highlight); border-radius: var(--border-radius-lg); aspect-ratio: 16/9; display: flex; align-items: center; justify-content: center; box-shadow: var(--shadow-md);">
-                    <span style="color: var(--text-muted);">MISSION IMAGE PLACEHOLDER</span>
+                <div style="border-radius: var(--border-radius-lg); overflow: hidden; box-shadow: var(--shadow-lg);">
+                    <img src="assets/images/placeholders/about-mission.svg" alt="Our Mission" style="width: 100%; display: block; object-fit: cover;">
                 </div>
             </div>
         </div>
@@ -30,8 +30,8 @@ require_once __DIR__ . '/includes/header.php';
                 <p>We are not just bottling water; we are bottling health, vitality, and trust.</p>
             </div>
             <div class="reveal" style="order: 1;">
-                <div style="background: var(--color-primary); border-radius: var(--border-radius-lg); aspect-ratio: 16/9; display: flex; align-items: center; justify-content: center; box-shadow: var(--shadow-md);">
-                    <span style="color: var(--text-light); opacity: 0.5;">VISION IMAGE PLACEHOLDER</span>
+                <div style="border-radius: var(--border-radius-lg); overflow: hidden; box-shadow: var(--shadow-lg);">
+                    <img src="assets/images/placeholders/about-vision.svg" alt="Our Vision" style="width: 100%; display: block; object-fit: cover;">
                 </div>
             </div>
         </div>

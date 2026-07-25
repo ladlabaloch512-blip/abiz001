@@ -47,7 +47,11 @@ $meta_desc = isset($meta_desc) ? $meta_desc : $brand['meta_description_default']
     <header class="site-header" id="site-header">
         <div class="container nav-container">
             <a href="index.php" class="logo-link" aria-label="<?php echo htmlspecialchars($brand['name']); ?> Home">
-                <img src="<?php echo $brand['logo_path']; ?>" alt="<?php echo htmlspecialchars($brand['name']); ?> Logo" width="180" height="54">
+                <?php if (file_exists(__DIR__ . '/../' . $brand['logo_path'])): ?>
+                    <img src="<?php echo $brand['logo_path']; ?>" alt="<?php echo htmlspecialchars($brand['name']); ?> Logo" width="180" height="54" onerror="this.outerHTML='<span class=\'logo-text-fallback\'><?php echo htmlspecialchars($brand['name']); ?></span>'">
+                <?php else: ?>
+                    <span class="logo-text-fallback"><?php echo htmlspecialchars($brand['name']); ?></span>
+                <?php endif; ?>
             </a>
 
             <nav class="nav-menu" id="nav-menu">
