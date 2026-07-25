@@ -68,6 +68,16 @@ require_once __DIR__ . '/includes/header.php';
                 <span class="product-size"><?php echo htmlspecialchars($product['size']); ?></span>
                 <h3 class="product-title"><?php echo htmlspecialchars($product['name']); ?></h3>
                 <p style="font-size: 0.9rem; margin-bottom: 1.5rem;"><?php echo htmlspecialchars($product['description']); ?></p>
+
+                <?php if(!empty($brand['whatsapp'])): ?>
+                    <div style="margin-top: auto;">
+                        <?php
+                        $wa_msg = "Hello, I'm interested in the " . $product['name'] . ". Please provide more information.";
+                        $wa_link = "https://wa.me/" . $brand['whatsapp'] . "?text=" . urlencode($wa_msg);
+                        ?>
+                        <a href="<?php echo htmlspecialchars($wa_link); ?>" target="_blank" class="btn" style="width: 100%; background-color: #25D366; color: white; border: none; font-size: 0.9rem; padding: 0.75rem 1rem;">Inquire on WhatsApp</a>
+                    </div>
+                <?php endif; ?>
             </div>
             <?php
             $count++;
@@ -91,17 +101,17 @@ require_once __DIR__ . '/includes/header.php';
         </div>
 
         <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--spacing-md); max-width: 900px; margin: 0 auto var(--spacing-lg);">
-            <div class="reveal delay-100" style="background: rgba(255,255,255,0.05); padding: 2rem; border-radius: var(--border-radius-lg); border: 1px solid rgba(255,255,255,0.1);">
+            <div class="reveal delay-100" style="background: rgba(255,255,255,0.1); padding: 2rem; border-radius: var(--border-radius-lg); border: 1px solid rgba(255,255,255,0.2); box-shadow: var(--shadow-sm);">
                 <div style="font-size: 3rem; margin-bottom: 1rem;">💧</div>
-                <h4>Filtration</h4>
+                <h4 style="color: #ffffff;">Filtration</h4>
             </div>
-            <div class="reveal delay-200" style="background: rgba(255,255,255,0.05); padding: 2rem; border-radius: var(--border-radius-lg); border: 1px solid rgba(255,255,255,0.1);">
+            <div class="reveal delay-200" style="background: rgba(255,255,255,0.1); padding: 2rem; border-radius: var(--border-radius-lg); border: 1px solid rgba(255,255,255,0.2); box-shadow: var(--shadow-sm);">
                 <div style="font-size: 3rem; margin-bottom: 1rem;">⚡</div>
-                <h4>Ozonation</h4>
+                <h4 style="color: #ffffff;">Ozonation</h4>
             </div>
-            <div class="reveal delay-300" style="background: rgba(255,255,255,0.05); padding: 2rem; border-radius: var(--border-radius-lg); border: 1px solid rgba(255,255,255,0.1);">
+            <div class="reveal delay-300" style="background: rgba(255,255,255,0.1); padding: 2rem; border-radius: var(--border-radius-lg); border: 1px solid rgba(255,255,255,0.2); box-shadow: var(--shadow-sm);">
                 <div style="font-size: 3rem; margin-bottom: 1rem;">🔬</div>
-                <h4>Testing</h4>
+                <h4 style="color: #ffffff;">Testing</h4>
             </div>
         </div>
         <a href="quality.php" class="btn btn-outline reveal delay-400" style="color: white; border-color: white;">Discover Our Process</a>

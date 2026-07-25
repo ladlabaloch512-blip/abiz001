@@ -93,6 +93,9 @@ button {
 .section-bg-dark h1,
 .section-bg-dark h2,
 .section-bg-dark h3,
+.section-bg-dark h4,
+.section-bg-dark h5,
+.section-bg-dark h6,
 .section-bg-dark p {
     color: var(--text-light);
 }
