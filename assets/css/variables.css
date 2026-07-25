@@ -1,0 +1,86 @@
+/* ==========================================================================
+   CSS Variables
+   This file controls the entire theme of the website.
+   Modify these variables to clone the site for other brands.
+   ========================================================================== */
+
+:root {
+    /* Brand Colors */
+    --color-primary: #0A2E5C; /* Deep Ocean Blue */
+    --color-secondary: #00B4D8; /* Aqua */
+    --color-accent: #00E5FF; /* Fresh Cyan */
+    --color-highlight: #E0E0E0; /* Silver */
+
+    /* Backgrounds */
+    --bg-main: #FFFFFF;
+    --bg-secondary: #F8F9FA; /* Light Gray */
+    --bg-dark: #051A36;
+
+    /* Typography Colors */
+    --text-main: #1A1A1A;
+    --text-muted: #666666;
+    --text-light: #FFFFFF;
+
+    /* Gradients */
+    --gradient-primary: linear-gradient(135deg, var(--color-primary) 0%, #154c96 100%);
+    --gradient-accent: linear-gradient(135deg, var(--color-secondary) 0%, var(--color-accent) 100%);
+    --gradient-light: linear-gradient(135deg, #ffffff 0%, var(--bg-secondary) 100%);
+
+    /* Typography */
+    /* We use Manrope for headings (luxurious, clean) and Poppins for body */
+    --font-heading: 'Manrope', sans-serif;
+    --font-body: 'Poppins', sans-serif;
+
+    /* Font Sizes - Desktop */
+    --text-h1: 4rem;
+    --text-h2: 3rem;
+    --text-h3: 2.25rem;
+    --text-h4: 1.5rem;
+    --text-p: 1rem;
+    --text-small: 0.875rem;
+
+    /* Spacing */
+    --spacing-xs: 0.5rem;
+    --spacing-sm: 1rem;
+    --spacing-md: 2rem;
+    --spacing-lg: 4rem;
+    --spacing-xl: 6rem;
+    --spacing-xxl: 8rem;
+
+    /* Layout */
+    --container-width: 1280px;
+    --border-radius-sm: 4px;
+    --border-radius-md: 8px;
+    --border-radius-lg: 16px;
+    --border-radius-xl: 24px;
+    --border-radius-pill: 50px;
+
+    /* Shadows */
+    --shadow-sm: 0 2px 4px rgba(10, 46, 92, 0.05);
+    --shadow-md: 0 8px 24px rgba(10, 46, 92, 0.08);
+    --shadow-lg: 0 16px 48px rgba(10, 46, 92, 0.12);
+    --shadow-hover: 0 24px 60px rgba(0, 180, 216, 0.2);
+
+    /* Transitions */
+    --transition-fast: 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    --transition-medium: 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    --transition-slow: 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+
+    /* Glassmorphism */
+    --glass-bg: rgba(255, 255, 255, 0.85);
+    --glass-border: 1px solid rgba(255, 255, 255, 0.3);
+    --glass-blur: blur(12px);
+    --glass-dark-bg: rgba(10, 46, 92, 0.85);
+}
+
+/* Mobile Variables Overrides */
+@media (max-width: 768px) {
+    :root {
+        --text-h1: 2.5rem;
+        --text-h2: 2rem;
+        --text-h3: 1.5rem;
+
+        --spacing-xl: 4rem;
+        --spacing-xxl: 5rem;
+    }
+}

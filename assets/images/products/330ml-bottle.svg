@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.d3.org/2000/svg" viewBox="0 0 400 800" width="400" height="800">
+    <rect width="400" height="800" fill="#F8F9FA" rx="20"/>
+    <rect x="20" y="20" width="360" height="760" fill="none" stroke="#E0E0E0" stroke-width="2" stroke-dasharray="10,10" rx="10"/>
+    <path d="M 180 350 L 220 350 L 220 380 L 250 420 L 250 630 C 250 641 241 650 230 650 L 170 650 C 159 650 150 641 150 630 L 150 420 L 180 380 Z" fill="#e6f7ff" stroke="#00B4D8" stroke-width="4"/>
+    <rect x="185" y="320" width="30" height="30" fill="#0A2E5C" rx="5"/>
+    <text x="200" y="480" font-family="Manrope, sans-serif" font-size="42" font-weight="bold" fill="#0A2E5C" text-anchor="middle">330ml</text>
+    <text x="200" y="530" font-family="Poppins, sans-serif" font-size="24" fill="#666666" text-anchor="middle">BOTTLE</text>
+    <text x="200" y="580" font-family="Poppins, sans-serif" font-size="16" fill="#00B4D8" text-anchor="middle">PLACEHOLDER</text>
+</svg>
