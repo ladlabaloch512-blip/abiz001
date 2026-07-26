@@ -1,0 +1,10 @@
+User-agent: *
+Disallow: /includes/
+Disallow: /assets/css/
+Disallow: /assets/js/
+Disallow: /*?*
+
+Allow: /assets/images/
+Allow: /assets/icons/
+
+Sitemap: https://yourdomain.com/sitemap.xml
