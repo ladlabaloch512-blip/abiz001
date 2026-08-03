@@ -1,0 +1,6 @@
+node_modules/
+screenshot.png
+package.json
+package-lock.json
+get_images.py
+screenshot.js
